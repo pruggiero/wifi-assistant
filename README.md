@@ -23,7 +23,15 @@ npm run dev
 - Client: http://localhost:5173
 - Server: http://localhost:3001
 
+## Testing
+
+```bash
+npm test
+```
+
 ## Tech Stack
 
 - **Frontend:** React, TypeScript, Vite
 - **Backend:** Node.js, Express, TypeScript
+- **AI:** OpenAI API (`gpt-4o-mini`)
+- **Testing:** Vitest, React Testing Library, Supertest
