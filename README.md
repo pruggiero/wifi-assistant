@@ -68,7 +68,6 @@ State is server-owned. The client sends `conversationState` back with each reque
 
 ## Trade-offs
 
-- **Response/state mismatch:** an early version classified after generating the response. Pre-classifying first fixed the case where they disagreed.
 - **Qualifying loop:** without a turn limit, qualifying could run indefinitely. `MAX_QUALIFYING_TURNS = 5` closes gracefully if no issue is identified in time.
 - **Backward navigation:** not implemented. The `question` classifier handles the common case - if a user is confused or missed a step, the flow stays on the current step and re-explains. For a physical reboot sequence, going back adds little value.
 - **Linear step flow:** steps advance sequentially. If a future flow needs conditional branching (e.g. "combo unit or separate modem and router?"), `StepGroup` would need `branchOutcomes` and a `nextOnOutcome` map, with the step classifier returning a branch label rather than plain `confirm`.
@@ -82,6 +81,7 @@ State is server-owned. The client sends `conversationState` back with each reque
 
 ## Findings
 
+- **Response/state mismatch:** an early version classified after generating the response. Pre-classifying first fixed the case where they disagreed.
 - **Single-device routing:** the classifier was routing "only my laptop has no WiFi" to `reboot`. Requiring the user to explicitly name other working devices before choosing `exit` fixed it without breaking the ambiguous case. Two eval cases cover both sides.
 - **Mid-step corrections:** "oh wait I made a mistake, let me try again" classifies as `question`, the current step re-prompts, and state does not advance. No special handling needed.
 - **Resolution follow-up questions:** without explicit instruction the model defaults to "Is there anything else I can help you with?" Adding "This is your final message. Do NOT ask follow-up questions." to the resolution prompt stopped it.
