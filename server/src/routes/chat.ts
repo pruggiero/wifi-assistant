@@ -29,7 +29,11 @@ function isValidState(state: unknown): state is ConversationState {
   return true;
 }
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openai: OpenAI;
+function getOpenAI(): OpenAI {
+  if (!openai) openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return openai;
+}
 
 router.post('/', async (req: Request, res: Response) => {
   const { messages, state: rawState } = req.body as { messages: Message[]; state?: unknown };
@@ -70,7 +74,7 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
     try {
-      const decision = await classifyQualifying(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), openai);
+      const decision = await classifyQualifying(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), getOpenAI());
       if (decision === 'unclear') {
         res.json({
           message: { role: 'assistant', content: "I'm having trouble understanding your situation. Please try rephrasing, or refresh the page to start a new session." },
@@ -103,7 +107,7 @@ router.post('/', async (req: Request, res: Response) => {
       nextState = { phase: 'resolution', issueType: state.issueType, stepIndex: 0 };
     } else {
       try {
-        const stepDecision = await classifyStepResponse(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), group.confirmStep.message, openai, state.issueType);
+        const stepDecision = await classifyStepResponse(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), group.confirmStep.message, getOpenAI(), state.issueType);
         if (stepDecision === 'unclear') {
           res.json({
             message: { role: 'assistant', content: "I'm having trouble understanding your response. Please try rephrasing, or refresh the page to start a new session." },
@@ -134,7 +138,7 @@ router.post('/', async (req: Request, res: Response) => {
   } else {
     instruction = buildInstruction(state);
     try {
-      nextState = await getNextState(state, sanitizedMessages, openai);
+      nextState = await getNextState(state, sanitizedMessages, getOpenAI());
     } catch (error) {
       console.error('[chat] getNextState error:', error);
       res.status(500).json({ error: 'Failed to get a response. Please try again.' });
@@ -143,7 +147,7 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       temperature: 0.3,
       messages: [
