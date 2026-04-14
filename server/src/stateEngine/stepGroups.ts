@@ -70,7 +70,7 @@ function buildStepGroups(steps: Step[]): StepGroup[] {
 export const issueRegistry: Record<IssueType, IssueConfig> = {
   reboot: {
     qualifying: {
-      classifierDescription: `The user's issue affects ALL devices on the network and a router reboot is appropriate`,
+      classifierDescription: `The user's issue affects ALL devices on the network and a router reboot is appropriate. Also choose reboot when the user has only one device but the router itself shows symptoms (e.g. red or abnormal lights) indicating a router-level problem`,
       exitCriteria: 'only one device is affected, a specific website is down, an ISP outage is suspected, or there is physical hardware damage',
       suggestedQuestions: [
         'Is the issue affecting all devices, or just one?',

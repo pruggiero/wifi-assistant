@@ -91,4 +91,26 @@ describe('classifyQualifying (integration)', () => {
     ]);
     expect(result).toBe('continue');
   });
+
+  // User only has one device but router lights are red - router symptom is enough to route to reboot
+  itLive('returns reboot when user has one device but router shows red lights', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one? Have you made any recent changes? Are any lights on your router red or off?' },
+      { role: 'user', content: 'I only have one device, my laptop, no changes' },
+      { role: 'assistant', content: 'Can you check your router lights?' },
+      { role: 'user', content: 'red' },
+    ]);
+    expect(result).toBe('reboot');
+  });
+
+  // User only has one device and lights are off that are usually on
+  itLive('returns reboot when user has one device and router lights are off', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one? Have you made any recent changes? Are any lights on your router red or off?' },
+      { role: 'user', content: 'I only have one device, my laptop, no changes, some lights on my router that are usually on are now off' },
+    ]);
+    expect(result).toBe('reboot');
+  });
 });
