@@ -8,6 +8,20 @@ import { stepGroups } from '../stateEngine/stepGroups';
 
 const router = Router();
 
+const VALID_PHASES = new Set(['qualifying', 'reboot', 'resolution', 'closed']);
+
+function isValidState(state: unknown): state is ConversationState {
+  if (!state || typeof state !== 'object') return false;
+  const s = state as Record<string, unknown>;
+  return (
+    VALID_PHASES.has(s.phase as string) &&
+    typeof s.rebootGroupIndex === 'number' &&
+    Number.isInteger(s.rebootGroupIndex) &&
+    s.rebootGroupIndex >= 0 &&
+    s.rebootGroupIndex < stepGroups.length
+  );
+}
+
 const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 interface Message {
@@ -16,15 +30,14 @@ interface Message {
 }
 
 router.post('/', async (req: Request, res: Response) => {
-  const { messages, state = INITIAL_STATE } = req.body as {
-    messages: Message[];
-    state?: ConversationState;
-  };
+  const { messages, state: rawState } = req.body as { messages: Message[]; state?: unknown };
 
   if (!messages || !Array.isArray(messages)) {
     res.status(400).json({ error: 'messages array is required' });
     return;
   }
+
+  const state: ConversationState = isValidState(rawState) ? rawState : INITIAL_STATE;
 
   const openai = getOpenAI();
 
