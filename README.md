@@ -99,15 +99,15 @@ Evals are excluded from `npm test` and run separately via `npm run test:eval`.
 
 **1. `server/src/stateEngine/types.ts`** - extend the union:
 ```ts
-export type IssueType = 'reboot' | 'dns';
+export type IssueType = 'reboot' | 'newIssue';
 ```
 Mirror the same change in **`client/src/types.ts`**.
 
-**2. `server/src/constants/yourSteps.ts`** - define steps using the shared `Step` interface:
+**2. `server/src/constants/newIssueSteps.ts`** - define steps using the shared `Step` interface:
 ```ts
 import { Step } from '../stateEngine/types';
-export const dnsSteps: Step[] = [
-  { id: 1, message: '...', waitForUser: true },
+export const newIssueSteps: Step[] = [
+  { id: 1, message: 'Instruction shown to the user.', waitForUser: true },
   ...
 ];
 ```
@@ -115,22 +115,25 @@ Steps with `waitForUser: false` are shown automatically and bundled with the nex
 
 **3. `server/src/stateEngine/stepGroups.ts`** - add an entry to `issueRegistry`:
 ```ts
-import { dnsSteps } from '../constants/dnsSteps';
+import { newIssueSteps } from '../constants/newIssueSteps';
 
 // in issueRegistry:
-dns: {
+newIssue: {
   qualifying: {
-    classifierDescription: 'The issue affects one device and looks like a DNS problem',
-    exitCriteria: 'all devices are affected, the router needs rebooting, or ISP outage is suspected',
-    suggestedQuestions: ['Can you reach any websites, or is it just one?', '...'],
+    classifierDescription: 'One sentence: when should the classifier choose this issue type over others.',
+    exitCriteria: 'Fragment describing when guided steps won\'t help, e.g. "only one device is affected, ..."',
+    suggestedQuestions: [
+      'A diagnostic question relevant to this issue type.',
+      'Another question covering a different angle.',
+    ],
   },
-  steps: buildStepGroups(dnsSteps),
+  steps: buildStepGroups(newIssueSteps),
   prompts: {
-    start: 'Qualifying is complete and a DNS flush is the right next step. Let the user know and ask them to confirm before you begin.',
-    questionContext: 'a DNS flush',
-    abort: 'The user no longer wants to continue. Acknowledge warmly and close.',
-    stepsComplete: 'The DNS steps are complete. Ask the user if their issue is resolved.',
-    resolution: 'This is your final message. The DNS fix is complete. ...',
+    start: 'Qualifying is done and this flow is the right next step. Tell the user what you are about to do and ask them to confirm before you begin.',
+    questionContext: 'short phrase for mid-step context, e.g. "a router reboot"',
+    abort: 'The user wants to stop. Acknowledge warmly and close.',
+    stepsComplete: 'All steps are done. Ask the user if their issue is resolved.',
+    resolution: 'This is your final message. [Describe the outcome]. If resolved: congratulate and close. If not: apologize and suggest contacting their ISP or a technician. Do NOT ask follow-up questions.',
   },
 },
 ```
@@ -141,7 +144,7 @@ A few things to keep in mind when writing the prompts for a new entry:
 - **`exitCriteria`** - write as a fragment (*"only one device is affected..."*); it's joined with other issues' criteria and prefixed automatically. Only needed when there's a meaningful "wrong path" case for this issue type.
 - **`suggestedQuestions`** - a pool, not a script. The LLM picks the 1–2 most relevant per turn. Cover different angles so it has something useful to ask at each stage of the diagnostic.
 - **`start`** - this runs once when qualifying resolves. Be explicit that the LLM should confirm the user is ready before presenting any steps - without it the model often skips straight to step 1.
-- **`questionContext`** - short phrase used mid-step when the user asks a clarifying question: *"the user has asked a question while being guided through {questionContext}"*. E.g. `'a DNS flush'` or `'a factory reset'`.
+- **`questionContext`** - short phrase used mid-step when the user asks a clarifying question: *"the user has asked a question while being guided through {questionContext}"*. Keep it natural, e.g. `'a router reboot'` or `'a factory reset'`.
 - **`resolution`** - include "This is your final message" and "Do NOT ask follow-up questions" explicitly. Without both, the model often closes with "Is there anything else I can help you with?" and the conversation doesn't end. Cover the resolved and unresolved cases separately.
 
 
