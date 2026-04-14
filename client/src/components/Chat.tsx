@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useChat } from '../hooks/useChat';
 import './Chat.css';
@@ -12,8 +12,11 @@ export function Chat() {
   const handleSend = () => {
     void sendMessage(input);
     setInput('');
-    inputRef.current?.focus();
   };
+
+  useEffect(() => {
+    if (!isLoading && !isClosed) inputRef.current?.focus();
+  }, [isLoading, isClosed]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') handleSend();
