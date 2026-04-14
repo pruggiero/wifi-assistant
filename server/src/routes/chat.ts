@@ -115,6 +115,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
+      temperature: 0.3,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
         ...sanitizedMessages,

@@ -63,6 +63,7 @@ State lives entirely on the server. The client echoes `conversationState` back o
 - **Input sanitization before OpenAI calls:** message `role` is validated against the allowed set, content is capped at 500 characters per message, and the history is limited to 20 messages total. This blocks prompt injection via crafted role values and keeps token usage bounded regardless of client behaviour.
 - **Separate context window for classifiers:** classifiers only receive the last 8 messages rather than the full history. They only need recent context to classify intent, so sending the full history would waste tokens on every request.
 - **`gpt-4o-mini` throughout:** plenty capable for constrained classifiers and guided responses, and noticeably cheaper than `gpt-4o` for this kind of work.
+- **`temperature: 0` on classifiers, `temperature: 0.3` on responses:** classifiers need to be deterministic -- the same input should always return the same label, which is what makes eval tests meaningful. Response generation uses a low but non-zero temperature to keep phrasing consistent while avoiding robotic repetition.
 - **Static response for `closed` phase:** no LLM call at all once the conversation is done.
 
 ---
