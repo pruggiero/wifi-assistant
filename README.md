@@ -140,11 +140,10 @@ A few things to keep in mind when writing the prompts for a new entry:
 - **`classifierDescription`** — one specific "when to choose this" sentence. The model picks between labels, so ambiguity between two similar descriptions causes misroutes. If your new issue is conceptually close to an existing one, sharpen both descriptions until the distinction is clear.
 - **`exitCriteria`** — write as a fragment (*"only one device is affected..."*); it's joined with other issues' criteria and prefixed automatically. Only needed when there's a meaningful "wrong path" case for this issue type.
 - **`suggestedQuestions`** — a pool, not a script. The LLM picks the 1–2 most relevant per turn. Cover different angles so it has something useful to ask at each stage of the diagnostic.
-- **`start`** — be explicit about asking the user to confirm they're ready before any steps begin. Without this the model often skips straight to step 1.
-- **`questionContext`** — short phrase used mid-step when the user asks a question: *"the user has asked a question while being guided through {questionContext}"*. Keep it brief, e.g. `'a DNS flush'` or `'a factory reset'`.
-- **`abort`** — the user has stopped mid-flow. Tell the LLM to close warmly and not continue the steps. Include "Do NOT ask follow-up questions" or it may prompt them to try again.
-- **`stepsComplete`** — runs after the last step, before resolution. Should ask whether the issue is resolved; keep it short since the resolution prompt handles the actual close.
-- **`resolution`** — the final message. Include "This is your final message" and "Do NOT ask follow-up questions" explicitly, or the model defaults to "Is there anything else I can help you with?" and the conversation doesn't end. Cover both the resolved and unresolved cases.
+- **`start`** — this runs once when qualifying resolves. Be explicit that the LLM should confirm the user is ready before presenting any steps — without it the model often skips straight to step 1.
+- **`questionContext`** — short phrase used mid-step when the user asks a clarifying question: *"the user has asked a question while being guided through {questionContext}"*. E.g. `'a DNS flush'` or `'a factory reset'`.
+- **`resolution`** — include "This is your final message" and "Do NOT ask follow-up questions" explicitly. Without both, the model often closes with "Is there anything else I can help you with?" and the conversation doesn't end. Cover the resolved and unresolved cases separately.
+
 
 
 
