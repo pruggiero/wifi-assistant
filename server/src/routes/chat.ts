@@ -10,7 +10,7 @@ const router = Router();
 
 const VALID_PHASES = new Set(['qualifying', 'reboot', 'resolution', 'closed']);
 const VALID_ROLES = new Set(['user', 'assistant']);
-const MAX_MESSAGES = 20;          // full flow is ~16-22 messages
+const MAX_MESSAGES = 25;          // full flow is ~16-22 messages; 25 gives a buffer without being unbounded
 const MAX_MESSAGE_LENGTH = 500;   // user replies are short; blocks prompt injection
 const CLASSIFIER_MESSAGES = 8;    // classifiers need recent context only
 
