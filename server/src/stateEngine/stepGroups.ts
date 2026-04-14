@@ -76,8 +76,8 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
     qualifying: {
       classifierDescription: `The user's issue affects all devices on the network and a router reboot is appropriate`,
       routingSignals: [
-        'router shows abnormal lights (red, or lights off that are usually on)',
-        'user made recent network changes (moved the router, added a new device, changed settings) that likely disrupted the router',
+        'router shows abnormal lights (red, or lights off that are usually on) - choose reboot even if only one device is affected',
+        'user made recent network changes (moved the router, added a new device, changed settings) - choose reboot even if only one device is affected',
       ],
       exitCriteria: 'only one device is affected, a specific website is down, an ISP outage is suspected, or there is physical hardware damage',
       suggestedQuestions: [
