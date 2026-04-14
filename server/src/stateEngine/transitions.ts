@@ -23,7 +23,7 @@ export async function getNextState(
       const groups = issueRegistry[current.issueType].steps;
       const nextStepIndex = current.stepIndex + 1;
       if (nextStepIndex >= groups.length) {
-        return { phase: 'resolution', issueType: null, stepIndex: 0 };
+        return { phase: 'resolution', issueType: current.issueType, stepIndex: 0 };
       }
       return { phase: 'guided-steps', issueType: current.issueType, stepIndex: nextStepIndex };
     }

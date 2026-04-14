@@ -13,6 +13,7 @@ const VALID_ROLES = new Set(['user', 'assistant']);
 const MAX_MESSAGES = 25;          // full flow is ~16-22 messages; 25 gives a buffer without being unbounded
 const MAX_MESSAGE_LENGTH = 500;   // user replies are short; blocks prompt injection
 const CLASSIFIER_MESSAGES = 8;    // classifiers need recent context only
+const MAX_QUALIFYING_TURNS = 5;   // if still unclassified after 5 user turns, close gracefully
 
 function isValidState(state: unknown): state is ConversationState {
   if (!state || typeof state !== 'object') return false;
@@ -58,6 +59,14 @@ router.post('/', async (req: Request, res: Response) => {
   let nextState: ConversationState;
 
   if (state.phase === 'qualifying') {
+    const userTurns = sanitizedMessages.filter(m => m.role === 'user').length;
+    if (userTurns >= MAX_QUALIFYING_TURNS) {
+      res.json({
+        message: { role: 'assistant', content: "I've asked a few questions but haven't been able to identify the issue. Please contact your ISP or a technician who can help diagnose it directly." },
+        nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
+      });
+      return;
+    }
     try {
       const decision = await classifyQualifying(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), openai);
       if (decision === 'unclear') {
@@ -88,7 +97,7 @@ router.post('/', async (req: Request, res: Response) => {
     if (!group) {
       // All steps done, transition to resolution
       instruction = buildInstruction(state);
-      nextState = { phase: 'resolution', issueType: null, stepIndex: 0 };
+      nextState = { phase: 'resolution', issueType: state.issueType, stepIndex: 0 };
     } else {
       try {
         const stepDecision = await classifyStepResponse(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), group.confirmStep.message, openai, state.issueType);
@@ -109,7 +118,7 @@ router.post('/', async (req: Request, res: Response) => {
           // User confirmed - advance to next step
           const nextStepIndex = state.stepIndex + 1;
           nextState = nextStepIndex >= groups.length
-            ? { phase: 'resolution', issueType: null, stepIndex: 0 }
+            ? { phase: 'resolution', issueType: state.issueType, stepIndex: 0 }
             : { phase: 'guided-steps', issueType: state.issueType, stepIndex: nextStepIndex };
           instruction = buildInstruction(nextState);
         }

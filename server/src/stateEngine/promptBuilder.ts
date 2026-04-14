@@ -33,7 +33,14 @@ export function buildInstruction(state: InstructionState): string {
       const issueContext = Object.values(issueRegistry)
         .map(c => `- ${c.qualifying.classifierDescription}\n  Useful questions: ${c.qualifying.suggestedQuestions.join(' | ')}`)
         .join('\n');
-      return `You are gathering information to diagnose a WiFi issue. Your goal is to determine which of these applies:\n${issueContext}\n- exit: issue is out of scope (single device, specific site down, ISP outage, hardware damage)\n\nBased on what the user has already said, ask the 1-2 most relevant follow-up questions. Do not ask questions they have already answered. Do not list all questions at once.\n\nIf this is the start of the conversation, greet the user warmly and ask one opening question.\nDo not make a decision yet — just gather information.`;
+      const exitCriteria = Object.values(issueRegistry)
+        .map(c => c.qualifying.exitCriteria)
+        .filter(Boolean)
+        .join('; ');
+      const exitLine = exitCriteria
+        ? `- exit: guided troubleshooting won't help: ${exitCriteria}`
+        : `- exit: issue is out of scope (single device, specific site down, ISP outage, hardware damage)`;
+      return `You are gathering information to diagnose a WiFi issue. Your goal is to determine which of these applies:\n${issueContext}\n${exitLine}\n\nBased on what the user has already said, ask the 1-2 most relevant follow-up questions. Do not ask questions they have already answered. Do not list all questions at once.\n\nIf this is the start of the conversation, greet the user warmly and ask one opening question.\nDo not make a decision yet — just gather information.`;
     }
 
     case 'guided-steps': {
@@ -56,11 +63,13 @@ Step ${group.confirmStep.id}: "${group.confirmStep.message}"
 Ask the user to confirm when they've completed it before continuing.`;
     }
 
-    case 'resolution':
-      return `This is your final message. The troubleshooting steps are complete.
+    case 'resolution': {
+      const resolution = state.issueType ? issueRegistry[state.issueType].prompts.resolution : undefined;
+      return resolution ?? `This is your final message. The troubleshooting steps are complete.
 - If the user says their issue is resolved: congratulate them warmly and say goodbye.
 - If the issue is not resolved: apologize sincerely, suggest they contact their ISP or a technician, and say goodbye.
 Do NOT ask any follow-up questions. Do NOT offer further troubleshooting. Close the conversation.`;
+    }
 
     case 'closed':
       return `The conversation has concluded. Offer a brief warm closing if needed.`;

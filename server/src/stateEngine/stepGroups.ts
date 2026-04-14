@@ -15,17 +15,23 @@ export interface IssuePrompts {
   abort: string;
   /** Instruction shown when all steps are done, transitioning to resolution. */
   stepsComplete: string;
+  /** Instruction for the resolution phase. Optional — falls back to a generic close. */
+  resolution?: string;
 }
 
 export interface IssueQualifying {
   /**
    * One-line description used in the classifier prompt — when should this issue type be chosen?
-   * Add a new entry here when registering a new issue type.
    */
   classifierDescription: string;
   /**
+   * When this issue type is NOT the right path. Used in the qualifying prompt to describe
+   * the exit condition. Optional — omitting falls back to a generic exit description.
+   */
+  exitCriteria?: string;
+  /**
    * Pool of diagnostic questions relevant to this issue type.
-   * The LLM picks the most relevant ones to ask based on the conversation so far —
+   * The LLM picks the most relevant ones based on the conversation so far —
    * these are suggestions, not a fixed list to recite.
    */
   suggestedQuestions: string[];
@@ -85,6 +91,7 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
   reboot: {
     qualifying: {
       classifierDescription: `The user's issue affects ALL devices on the network and a router reboot is appropriate`,
+      exitCriteria: 'only one device is affected, a specific website is down, an ISP outage is suspected, or there is physical hardware damage',
       suggestedQuestions: [
         'Is the issue affecting all devices, or just one?',
         'Have you made any recent changes - like moving the router, adding a new device, or changing any settings?',
@@ -97,6 +104,10 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
       questionContext: 'a router reboot',
       abort: `The user has indicated their issue is resolved or they no longer need to continue the reboot. Acknowledge this warmly and close the conversation. Do NOT continue the reboot steps. Do NOT ask any follow-up questions.`,
       stepsComplete: 'The reboot steps are complete. Ask the user if their issue is resolved.',
+      resolution: `This is your final message. The router reboot is complete.
+- If the user says their issue is resolved: congratulate them warmly and say goodbye.
+- If the issue is not resolved: apologize sincerely, suggest they contact their ISP or a technician, and say goodbye.
+Do NOT ask any follow-up questions. Do NOT offer further troubleshooting. Close the conversation.`,
     },
   },
 };
