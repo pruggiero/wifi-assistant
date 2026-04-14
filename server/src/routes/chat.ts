@@ -26,7 +26,7 @@ function isValidState(state: unknown): state is ConversationState {
   );
 }
 
-const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 interface Message {
   role: 'user' | 'assistant';
@@ -47,8 +47,6 @@ router.post('/', async (req: Request, res: Response) => {
     .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_LENGTH) }));
 
   const state: ConversationState = isValidState(rawState) ? rawState : INITIAL_STATE;
-
-  const openai = getOpenAI();
 
   if (state.phase === 'closed') {
     res.json({
