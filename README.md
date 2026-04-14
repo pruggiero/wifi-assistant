@@ -76,6 +76,7 @@ State lives entirely on the server. The client echoes `conversationState` back o
 - **Backward navigation:** not implemented here. The `question` classifier covers the common case: if a user is confused or missed something, it stays on the current step and re-explains. A reboot flow also happens to be a case where going back doesn't add much since the steps are physical and sequential. In a different type of guided flow it would be more valuable.
 - **State is not persisted:** server restart resets everything. A production version would need a session store or a DB row.
 - **No streaming:** responses are returned as a single JSON payload once the full completion arrives. Streaming would improve perceived responsiveness, but it complicates the response shape: `nextState` is only known after the full content is generated, so a streaming version would need to deliver content chunks and `nextState` as separate SSE events and handle partial-response errors on the client.
+- **Response generation sends the full history regardless of phase:** classifiers already use a shorter context window (8 messages), but the response LLM receives up to 20. In `qualifying` this is warranted since early context matters for follow-up questions. In `reboot` and `resolution`, the `instruction` already encodes what the LLM needs to say next, so the history is mostly texture and 4-6 messages would suffice. A phase-aware response window would reduce per-turn token cost on longer conversations.
 
 ---
 
