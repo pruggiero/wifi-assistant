@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+﻿import OpenAI from 'openai';
 import { Router, Request, Response } from 'express';
 import { SYSTEM_PROMPT } from '../constants/systemPrompt';
 import { INITIAL_STATE, ConversationState, IssueType, Message } from '../stateEngine/types';
@@ -46,6 +46,8 @@ router.post('/', async (req: Request, res: Response) => {
 
   const state: ConversationState = isValidState(rawState) ? rawState : INITIAL_STATE;
 
+  console.log(`[chat] phase=${state.phase}${state.issueType ? ` issueType=${state.issueType}` : ''} messages=${sanitizedMessages.length}`);
+
   if (state.phase === 'closed') {
     res.json({
       message: { role: 'assistant', content: 'This conversation has ended. Feel free to refresh the page to start a new session.' },
@@ -87,7 +89,8 @@ router.post('/', async (req: Request, res: Response) => {
         instruction = buildInstruction(state);
         nextState = state;
       }
-    } catch {
+    } catch (error) {
+      console.error('[chat] qualifying classifier error:', error);
       instruction = buildInstruction(state);
       nextState = state;
     }
@@ -122,14 +125,21 @@ router.post('/', async (req: Request, res: Response) => {
             : { phase: 'guided-steps', issueType: state.issueType, stepIndex: nextStepIndex };
           instruction = buildInstruction(nextState);
         }
-      } catch {
+      } catch (error) {
+        console.error('[chat] step classifier error:', error);
         instruction = buildInstruction(state);
         nextState = state; // safe fallback - don't advance state on error
       }
     }
   } else {
     instruction = buildInstruction(state);
-    nextState = await getNextState(state, sanitizedMessages, openai);
+    try {
+      nextState = await getNextState(state, sanitizedMessages, openai);
+    } catch (error) {
+      console.error('[chat] getNextState error:', error);
+      res.status(500).json({ error: 'Failed to get a response. Please try again.' });
+      return;
+    }
   }
 
   try {
