@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import { Router, Request, Response } from 'express';
 import { SYSTEM_PROMPT } from '../constants/systemPrompt';
 import { INITIAL_STATE, ConversationState } from '../stateEngine/types';
-import { buildInstruction } from '../stateEngine/promptBuilder';
+import { buildInstruction, InstructionState } from '../stateEngine/promptBuilder';
 import { getNextState, classifyQualifyingForTest as classifyQualifying, classifyRebootResponseForTest as classifyRebootResponse } from '../stateEngine/transitions';
 import { stepGroups } from '../stateEngine/stepGroups';
 
@@ -44,10 +44,10 @@ router.post('/', async (req: Request, res: Response) => {
     try {
       const decision = await classifyQualifying(messages, openai);
       if (decision === 'exit') {
-        instruction = buildInstruction({ phase: 'exit-qualifying', rebootGroupIndex: 0 } as never);
+        instruction = buildInstruction({ phase: 'exit-qualifying', rebootGroupIndex: 0 });
         nextState = { phase: 'closed', rebootGroupIndex: 0 };
       } else if (decision === 'reboot') {
-        instruction = buildInstruction({ phase: 'reboot-start', rebootGroupIndex: 0 } as never);
+        instruction = buildInstruction({ phase: 'reboot-start', rebootGroupIndex: 0 });
         nextState = { phase: 'reboot', rebootGroupIndex: 0 };
       } else {
         instruction = buildInstruction(state);

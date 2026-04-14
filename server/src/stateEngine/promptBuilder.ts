@@ -1,7 +1,7 @@
 import { ConversationState } from './types';
 import { stepGroups } from './stepGroups';
 
-type InstructionState = ConversationState | { phase: 'exit-qualifying' | 'reboot-start' | 'reboot-question' | 'reboot-abort'; rebootGroupIndex: number };
+export type InstructionState = ConversationState | { phase: 'exit-qualifying' | 'reboot-start' | 'reboot-question' | 'reboot-abort'; rebootGroupIndex: number };
 
 export function buildInstruction(state: InstructionState): string {
   switch (state.phase) {
