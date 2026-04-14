@@ -64,6 +64,7 @@ State lives entirely on the server. The client echoes `conversationState` back o
 - **Separate context window for classifiers:** classifiers only receive the last 8 messages rather than the full history. They only need recent context to classify intent, so sending the full history would waste tokens on every request.
 - **`gpt-4o-mini` throughout:** plenty capable for constrained classifiers and guided responses, and noticeably cheaper than `gpt-4o` for this kind of work.
 - **`temperature: 0` on classifiers, `temperature: 0.3` on responses:** classifiers need to be deterministic -- the same input should always return the same label, which is what makes eval tests meaningful. Response generation uses a low but non-zero temperature to keep phrasing consistent while avoiding robotic repetition.
+- **Logprob confidence check on classifiers:** both classifiers request `logprobs: true` and check `Math.exp(logprob) < 0.4` on the top token. With 3 classes, random chance is 33%, so a probability below 40% means the model can barely distinguish between labels -- a strong signal that the input is genuinely incoherent. In that case the conversation closes with a message asking the user to rephrase rather than acting on an unreliable classification. Normal ambiguity (e.g. "just my laptop") returns a confident `continue` and prompts for clarification instead.
 - **Static response for `closed` phase:** no LLM call at all once the conversation is done.
 
 ---
@@ -74,6 +75,7 @@ State lives entirely on the server. The client echoes `conversationState` back o
 - **Reboot question loop / token cost:** without `abort`, a user who never confirms a step would stay in the `question` branch forever, burning tokens every message. `abort` exits cleanly. Token cost is further controlled by capping message history (20 messages) and using a shorter context window (8 messages) for classifier calls that only need recent intent.
 - **Backward navigation:** not implemented here. The `question` classifier covers the common case: if a user is confused or missed something, it stays on the current step and re-explains. A reboot flow also happens to be a case where going back doesn't add much since the steps are physical and sequential. In a different type of guided flow it would be more valuable.
 - **State is not persisted:** server restart resets everything. A production version would need a session store or a DB row.
+- **No streaming:** responses are returned as a single JSON payload once the full completion arrives. Streaming would improve perceived responsiveness, but it complicates the response shape: `nextState` is only known after the full content is generated, so a streaming version would need to deliver content chunks and `nextState` as separate SSE events and handle partial-response errors on the client.
 
 ---
 
