@@ -65,6 +65,13 @@ router.post('/', async (req: Request, res: Response) => {
   if (state.phase === 'qualifying') {
     try {
       const decision = await classifyQualifying(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), openai);
+      if (decision === 'unclear') {
+        res.json({
+          message: { role: 'assistant', content: "I'm having trouble understanding your situation. Please try rephrasing, or refresh the page to start a new session." },
+          nextState: { phase: 'closed', rebootGroupIndex: 0 },
+        });
+        return;
+      }
       if (decision === 'exit') {
         instruction = buildInstruction({ phase: 'exit-qualifying', rebootGroupIndex: 0 });
         nextState = { phase: 'closed', rebootGroupIndex: 0 };
@@ -88,6 +95,13 @@ router.post('/', async (req: Request, res: Response) => {
     } else {
       try {
         const rebootDecision = await classifyRebootResponse(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), group.confirmStep.message, openai);
+        if (rebootDecision === 'unclear') {
+          res.json({
+            message: { role: 'assistant', content: "I'm having trouble understanding your response. Please try rephrasing, or refresh the page to start a new session." },
+            nextState: { phase: 'closed', rebootGroupIndex: 0 },
+          });
+          return;
+        }
         if (rebootDecision === 'question') {
           instruction = buildInstruction({ phase: 'reboot-question', rebootGroupIndex: state.rebootGroupIndex });
           nextState = state; // stay on current step

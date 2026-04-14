@@ -37,13 +37,17 @@ export async function getNextState(
   }
 }
 
+const CONFIDENCE_THRESHOLD = 0.4; // if top-token probability < 40%, classifier is too uncertain to trust
+
 async function classifyQualifying(
   messages: Message[],
   openai: OpenAI
-): Promise<'reboot' | 'exit' | 'continue'> {
+): Promise<'reboot' | 'exit' | 'continue' | 'unclear'> {
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0,
+    logprobs: true,
+    top_logprobs: 1,
     messages: [
       {
         role: 'system',
@@ -65,6 +69,9 @@ Reply with exactly one word: reboot, exit, or continue`,
     max_tokens: 10,
   });
 
+  const logprob = completion.choices[0].logprobs?.content?.[0]?.logprob ?? 0;
+  if (Math.exp(logprob) < CONFIDENCE_THRESHOLD) return 'unclear';
+
   const text = completion.choices[0].message.content?.toLowerCase().trim() ?? 'continue';
   if (text.startsWith('reboot')) return 'reboot';
   if (text.startsWith('exit')) return 'exit';
@@ -75,12 +82,14 @@ async function classifyRebootResponse(
   messages: Message[],
   currentStepMessage: string,
   openai: OpenAI
-): Promise<'confirm' | 'question' | 'abort'> {
+): Promise<'confirm' | 'question' | 'abort' | 'unclear'> {
   const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0,
+    logprobs: true,
+    top_logprobs: 1,
     messages: [
       {
         role: 'system',
@@ -101,6 +110,9 @@ Reply with exactly one word: confirm, question, or abort`,
     ],
     max_tokens: 10,
   });
+
+  const logprob = completion.choices[0].logprobs?.content?.[0]?.logprob ?? 0;
+  if (Math.exp(logprob) < CONFIDENCE_THRESHOLD) return 'unclear';
 
   const text = completion.choices[0].message.content?.toLowerCase().trim() ?? 'confirm';
   if (text.startsWith('question')) return 'question';
