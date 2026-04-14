@@ -47,7 +47,7 @@ describe('response quality (LLM-as-judge)', () => {
   // Guards the bug where resolution phase kept asking follow-up questions
   itLive('resolution phase closes conversation when issue is resolved', async () => {
     const response = await getResponse(
-      { phase: 'resolution', rebootGroupIndex: 0 },
+      { phase: 'resolution', issueType: null, stepIndex: 0 },
       'Yes! My internet is working again, thank you!'
     );
     expect(await judge('Does this response close the conversation without asking any follow-up questions?', response)).toBe('yes');
@@ -56,7 +56,7 @@ describe('response quality (LLM-as-judge)', () => {
 
   itLive('resolution phase suggests ISP or technician when issue is unresolved', async () => {
     const response = await getResponse(
-      { phase: 'resolution', rebootGroupIndex: 0 },
+      { phase: 'resolution', issueType: null, stepIndex: 0 },
       'No, still not working after the reboot.'
     );
     expect(await judge('Does this response suggest contacting an ISP or technician?', response)).toBe('yes');
@@ -65,7 +65,7 @@ describe('response quality (LLM-as-judge)', () => {
 
   itLive('qualifying phase asks at least one qualifying question', async () => {
     const response = await getResponse(
-      { phase: 'qualifying', rebootGroupIndex: 0 },
+      { phase: 'qualifying', issueType: null, stepIndex: 0 },
       'Hello, my internet stopped working.'
     );
     expect(await judge('Does this response ask whether the issue is affecting all devices or just one?', response)).toBe('yes');
@@ -73,7 +73,7 @@ describe('response quality (LLM-as-judge)', () => {
 
   itLive('reboot phase does not skip ahead to next step unprompted', async () => {
     const response = await getResponse(
-      { phase: 'reboot', rebootGroupIndex: 0 },
+      { phase: 'guided-steps', issueType: 'reboot', stepIndex: 0 },
       'ok im ready to start'
     );
     expect(await judge('Does this response ask the user to unplug the power cable from the router or modem?', response)).toBe('yes');

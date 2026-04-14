@@ -1,14 +1,14 @@
 import OpenAI from 'openai';
 import { Router, Request, Response } from 'express';
 import { SYSTEM_PROMPT } from '../constants/systemPrompt';
-import { INITIAL_STATE, ConversationState } from '../stateEngine/types';
+import { INITIAL_STATE, ConversationState, IssueType, Message } from '../stateEngine/types';
 import { buildInstruction } from '../stateEngine/promptBuilder';
-import { getNextState, classifyQualifyingForTest as classifyQualifying, classifyRebootResponseForTest as classifyRebootResponse } from '../stateEngine/transitions';
-import { stepGroups } from '../stateEngine/stepGroups';
+import { getNextState, classifyQualifying, classifyRebootResponse } from '../stateEngine/transitions';
+import { issueRegistry } from '../stateEngine/stepGroups';
 
 const router = Router();
 
-const VALID_PHASES = new Set(['qualifying', 'reboot', 'resolution', 'closed']);
+const VALID_PHASES = new Set(['qualifying', 'guided-steps', 'resolution', 'closed']);
 const VALID_ROLES = new Set(['user', 'assistant']);
 const MAX_MESSAGES = 25;          // full flow is ~16-22 messages; 25 gives a buffer without being unbounded
 const MAX_MESSAGE_LENGTH = 500;   // user replies are short; blocks prompt injection
@@ -17,21 +17,18 @@ const CLASSIFIER_MESSAGES = 8;    // classifiers need recent context only
 function isValidState(state: unknown): state is ConversationState {
   if (!state || typeof state !== 'object') return false;
   const s = state as Record<string, unknown>;
-  return (
-    VALID_PHASES.has(s.phase as string) &&
-    typeof s.rebootGroupIndex === 'number' &&
-    Number.isInteger(s.rebootGroupIndex) &&
-    s.rebootGroupIndex >= 0 &&
-    s.rebootGroupIndex < stepGroups.length
-  );
+  if (!VALID_PHASES.has(s.phase as string)) return false;
+  if (typeof s.stepIndex !== 'number' || !Number.isInteger(s.stepIndex) || s.stepIndex < 0) return false;
+  const issueType = s.issueType ?? null;
+  if (issueType !== null && !((issueType as string) in issueRegistry)) return false;
+  if (s.phase === 'guided-steps') {
+    if (!issueType) return false;
+    if (s.stepIndex >= issueRegistry[issueType as IssueType].steps.length) return false;
+  }
+  return true;
 }
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
 
 router.post('/', async (req: Request, res: Response) => {
   const { messages, state: rawState } = req.body as { messages: Message[]; state?: unknown };
@@ -66,16 +63,17 @@ router.post('/', async (req: Request, res: Response) => {
       if (decision === 'unclear') {
         res.json({
           message: { role: 'assistant', content: "I'm having trouble understanding your situation. Please try rephrasing, or refresh the page to start a new session." },
-          nextState: { phase: 'closed', rebootGroupIndex: 0 },
+          nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
         });
         return;
       }
       if (decision === 'exit') {
-        instruction = buildInstruction({ phase: 'exit-qualifying', rebootGroupIndex: 0 });
-        nextState = { phase: 'closed', rebootGroupIndex: 0 };
-      } else if (decision === 'reboot') {
-        instruction = buildInstruction({ phase: 'reboot-start', rebootGroupIndex: 0 });
-        nextState = { phase: 'reboot', rebootGroupIndex: 0 };
+        instruction = buildInstruction({ phase: 'exit-qualifying', issueType: null, stepIndex: 0 });
+        nextState = { phase: 'closed', issueType: null, stepIndex: 0 };
+      } else if (decision !== 'continue') {
+        // decision is an IssueType - start the guided flow for that issue
+        instruction = buildInstruction({ phase: 'flow-start', issueType: decision, stepIndex: 0 });
+        nextState = { phase: 'guided-steps', issueType: decision, stepIndex: 0 };
       } else {
         instruction = buildInstruction(state);
         nextState = state;
@@ -84,39 +82,40 @@ router.post('/', async (req: Request, res: Response) => {
       instruction = buildInstruction(state);
       nextState = state;
     }
-  } else if (state.phase === 'reboot') {
-    const group = stepGroups[state.rebootGroupIndex];
+  } else if (state.phase === 'guided-steps') {
+    const groups = state.issueType ? issueRegistry[state.issueType].steps : [];
+    const group = groups[state.stepIndex];
     if (!group) {
-      // All groups done, transition to resolution
+      // All steps done, transition to resolution
       instruction = buildInstruction(state);
-      nextState = await getNextState(state, sanitizedMessages, openai);
+      nextState = { phase: 'resolution', issueType: null, stepIndex: 0 };
     } else {
       try {
         const rebootDecision = await classifyRebootResponse(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), group.confirmStep.message, openai);
         if (rebootDecision === 'unclear') {
           res.json({
             message: { role: 'assistant', content: "I'm having trouble understanding your response. Please try rephrasing, or refresh the page to start a new session." },
-            nextState: { phase: 'closed', rebootGroupIndex: 0 },
+            nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
           });
           return;
         }
         if (rebootDecision === 'question') {
-          instruction = buildInstruction({ phase: 'reboot-question', rebootGroupIndex: state.rebootGroupIndex });
+          instruction = buildInstruction({ phase: 'flow-question', issueType: state.issueType, stepIndex: state.stepIndex });
           nextState = state; // stay on current step
         } else if (rebootDecision === 'abort') {
-          instruction = buildInstruction({ phase: 'reboot-abort', rebootGroupIndex: state.rebootGroupIndex });
-          nextState = { phase: 'closed', rebootGroupIndex: 0 };
+          instruction = buildInstruction({ phase: 'flow-abort', issueType: state.issueType, stepIndex: state.stepIndex });
+          nextState = { phase: 'closed', issueType: null, stepIndex: 0 };
         } else {
-          // User confirmed - advance state and build instruction for what comes next
-          const nextGroupIndex = state.rebootGroupIndex + 1;
-          nextState = nextGroupIndex >= stepGroups.length
-            ? { phase: 'resolution', rebootGroupIndex: 0 }
-            : { phase: 'reboot', rebootGroupIndex: nextGroupIndex };
+          // User confirmed - advance to next step
+          const nextStepIndex = state.stepIndex + 1;
+          nextState = nextStepIndex >= groups.length
+            ? { phase: 'resolution', issueType: null, stepIndex: 0 }
+            : { phase: 'guided-steps', issueType: state.issueType, stepIndex: nextStepIndex };
           instruction = buildInstruction(nextState);
         }
       } catch {
         instruction = buildInstruction(state);
-        nextState = await getNextState(state, sanitizedMessages, openai);
+        nextState = state; // safe fallback - don't advance state on error
       }
     }
   } else {

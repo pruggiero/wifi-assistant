@@ -1,11 +1,6 @@
 import OpenAI from 'openai';
-import { ConversationState } from './types';
-import { stepGroups } from './stepGroups';
-
-interface Message {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-}
+import { ConversationState, IssueType, Message } from './types';
+import { issueRegistry } from './stepGroups';
 
 export async function getNextState(
   current: ConversationState,
@@ -15,22 +10,27 @@ export async function getNextState(
   switch (current.phase) {
     case 'qualifying': {
       const decision = await classifyQualifying(messages, openai);
-      if (decision === 'reboot') return { phase: 'reboot', rebootGroupIndex: 0 };
-      if (decision === 'exit') return { phase: 'closed', rebootGroupIndex: 0 };
+      if (decision === 'exit') return { phase: 'closed', issueType: null, stepIndex: 0 };
+      if (decision !== 'continue' && decision !== 'unclear') {
+        // decision is an IssueType — start the guided flow for that issue
+        return { phase: 'guided-steps', issueType: decision, stepIndex: 0 };
+      }
       return current; // stay in qualifying until enough info
     }
 
-    case 'reboot': {
-      const nextGroupIndex = current.rebootGroupIndex + 1;
-      if (nextGroupIndex >= stepGroups.length) {
-        return { phase: 'resolution', rebootGroupIndex: 0 };
+    case 'guided-steps': {
+      if (!current.issueType) return current;
+      const groups = issueRegistry[current.issueType].steps;
+      const nextStepIndex = current.stepIndex + 1;
+      if (nextStepIndex >= groups.length) {
+        return { phase: 'resolution', issueType: null, stepIndex: 0 };
       }
-      return { phase: 'reboot', rebootGroupIndex: nextGroupIndex };
+      return { phase: 'guided-steps', issueType: current.issueType, stepIndex: nextStepIndex };
     }
 
     case 'resolution':
       // Both resolved and unresolved end the conversation; the LLM generates the appropriate close
-      return { phase: 'closed', rebootGroupIndex: 0 };
+      return { phase: 'closed', issueType: null, stepIndex: 0 };
 
     case 'closed':
       return current;
@@ -42,7 +42,7 @@ const CONFIDENCE_THRESHOLD = 0.4; // if top-token probability < 40%, classifier 
 async function classifyQualifying(
   messages: Message[],
   openai: OpenAI
-): Promise<'reboot' | 'exit' | 'continue' | 'unclear'> {
+): Promise<IssueType | 'exit' | 'continue' | 'unclear'> {
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0,
@@ -120,5 +120,4 @@ Reply with exactly one word: confirm, question, or abort`,
   return 'confirm';
 }
 
-// Exported for eval tests only
-export { classifyQualifying as classifyQualifyingForTest, classifyRebootResponse as classifyRebootResponseForTest };
+export { classifyQualifying, classifyRebootResponse };

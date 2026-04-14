@@ -11,7 +11,7 @@ vi.mock('../routes/chat', () => {
     }
     res.json({
       message: { role: 'assistant', content: 'mocked response' },
-      nextState: { phase: 'qualifying', rebootGroupIndex: 0 },
+      nextState: { phase: 'qualifying', issueType: null, stepIndex: 0 },
     });
   });
   return { default: router };

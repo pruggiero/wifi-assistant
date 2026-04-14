@@ -13,9 +13,9 @@ const itLive = hasKey ? it : it.skip;
 async function getClassifier() {
   const OpenAI = (await import('openai')).default;
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const { classifyQualifyingForTest } = await import('../stateEngine/transitions');
+  const { classifyQualifying } = await import('../stateEngine/transitions');
   return (messages: { role: 'user' | 'assistant'; content: string }[]) =>
-    classifyQualifyingForTest(messages, openai);
+    classifyQualifying(messages, openai);
 }
 
 describe('classifyQualifying (integration)', () => {

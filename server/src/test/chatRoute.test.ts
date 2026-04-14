@@ -11,19 +11,19 @@ describe('POST /api/chat - closed phase (no OpenAI call)', () => {
       .post('/api/chat')
       .send({
         messages: [{ role: 'user', content: 'hello?' }],
-        state: { phase: 'closed', rebootGroupIndex: 0 },
+        state: { phase: 'closed', issueType: null, stepIndex: 0 },
       });
 
     expect(res.status).toBe(200);
     expect(res.body.message.role).toBe('assistant');
     expect(res.body.message.content).toContain('ended');
-    expect(res.body.nextState).toEqual({ phase: 'closed', rebootGroupIndex: 0 });
+    expect(res.body.nextState).toEqual({ phase: 'closed', issueType: null, stepIndex: 0 });
   });
 
   it('returns 400 when messages are missing', async () => {
     const res = await request(app)
       .post('/api/chat')
-      .send({ state: { phase: 'closed', rebootGroupIndex: 0 } });
+      .send({ state: { phase: 'closed', issueType: null, stepIndex: 0 } });
 
     expect(res.status).toBe(400);
   });
@@ -34,33 +34,33 @@ describe('POST /api/chat - unclear classifier response', () => {
 
   it('closes conversation when qualifying classifier returns unclear', async () => {
     const transitions = await import('../stateEngine/transitions');
-    vi.spyOn(transitions, 'classifyQualifyingForTest').mockResolvedValue('unclear');
+    vi.spyOn(transitions, 'classifyQualifying').mockResolvedValue('unclear');
 
     const res = await request(app)
       .post('/api/chat')
       .send({
         messages: [{ role: 'user', content: 'asdfghjkl' }],
-        state: { phase: 'qualifying', rebootGroupIndex: 0 },
+        state: { phase: 'qualifying', issueType: null, stepIndex: 0 },
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.nextState).toEqual({ phase: 'closed', rebootGroupIndex: 0 });
+    expect(res.body.nextState).toEqual({ phase: 'closed', issueType: null, stepIndex: 0 });
     expect(res.body.message.content).toContain('trouble understanding');
   });
 
   it('closes conversation when reboot classifier returns unclear', async () => {
     const transitions = await import('../stateEngine/transitions');
-    vi.spyOn(transitions, 'classifyRebootResponseForTest').mockResolvedValue('unclear');
+    vi.spyOn(transitions, 'classifyRebootResponse').mockResolvedValue('unclear');
 
     const res = await request(app)
       .post('/api/chat')
       .send({
         messages: [{ role: 'user', content: 'asdfghjkl' }],
-        state: { phase: 'reboot', rebootGroupIndex: 0 },
+        state: { phase: 'guided-steps', issueType: 'reboot', stepIndex: 0 },
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.nextState).toEqual({ phase: 'closed', rebootGroupIndex: 0 });
+    expect(res.body.nextState).toEqual({ phase: 'closed', issueType: null, stepIndex: 0 });
     expect(res.body.message.content).toContain('trouble understanding');
   });
 });

@@ -1,8 +1,25 @@
 import { rebootSteps, RebootStep } from '../constants/rebootSteps';
+import { IssueType } from './types';
 
 export interface StepGroup {
   presentSteps: RebootStep[];
   confirmStep: RebootStep;
+}
+
+export interface IssuePrompts {
+  /** Instruction when starting the guided flow (after qualifying). */
+  start: string;
+  /** Short description of the flow used mid-step, e.g. "a router reboot". */
+  questionContext: string;
+  /** Instruction when the user aborts mid-flow. */
+  abort: string;
+  /** Instruction shown when all steps are done, transitioning to resolution. */
+  stepsComplete: string;
+}
+
+export interface IssueConfig {
+  steps: StepGroup[];
+  prompts: IssuePrompts;
 }
 
 /**
@@ -39,4 +56,15 @@ function buildStepGroups(steps: RebootStep[]): StepGroup[] {
   return groups;
 }
 
-export const stepGroups = buildStepGroups(rebootSteps);
+// Registry of issue configs keyed by issue type — add an entry here to support a new issue type
+export const issueRegistry: Record<IssueType, IssueConfig> = {
+  reboot: {
+    steps: buildStepGroups(rebootSteps),
+    prompts: {
+      start: `The qualifying questions are complete and a router reboot is the right next step. Tell the user you are going to walk them through a reboot and ask them to confirm they are ready before you begin.`,
+      questionContext: 'a router reboot',
+      abort: `The user has indicated their issue is resolved or they no longer need to continue the reboot. Acknowledge this warmly and close the conversation. Do NOT continue the reboot steps. Do NOT ask any follow-up questions.`,
+      stepsComplete: 'The reboot steps are complete. Ask the user if their issue is resolved.',
+    },
+  },
+};
