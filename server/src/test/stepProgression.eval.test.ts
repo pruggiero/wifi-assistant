@@ -103,10 +103,11 @@ describe('step progression (LLM-as-judge)', () => {
   // Timing verbatim check: 10s not paraphrased to 30s
   itLive('step 1: relays 10 second wait verbatim, not paraphrased', async () => {
     const response = await getResponse(1, [
-      { role: 'user', content: 'done' },
+      { role: 'assistant', content: "Great! Please unplug the power cable from both your router and modem. Let me know when you've done that." },
+      { role: 'user', content: 'done, both unplugged' },
     ]);
+    expect(await judge('Does this response mention a wait time of 10 seconds (not 30 seconds or any other amount)?', response)).toBe('yes');
     expect(await judge('Does this response mention waiting 30 seconds?', response)).toBe('no');
-    expect(await judge('Does this response mention waiting approximately 10 seconds?', response)).toBe('yes');
   });
 
   // Correction handling: user says they misread, roll back
