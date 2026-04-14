@@ -59,7 +59,9 @@ State lives entirely on the server. The client echoes `conversationState` back o
 ## Design Choices
 
 - **Separate classifier calls over structured outputs / function calling:** keeps classifiers independently testable. Swapping the model or prompt for one classifier doesn't touch response generation.
-- **Server-owned state:** the client can't manipulate or replay state out of order.
+- **Server-owned state:** the client can't manipulate or replay state out of order. State sent from the client is validated against the known phase enum and a bounds-checked `rebootGroupIndex` before use; invalid state falls back to the start of the conversation.
+- **Input sanitization before OpenAI calls:** message `role` is validated against the allowed set, content is capped at 500 characters per message, and the history is limited to 20 messages total. This blocks prompt injection via crafted role values and keeps token usage bounded regardless of client behaviour.
+- **Separate context window for classifiers:** classifiers only receive the last 8 messages rather than the full history. They only need recent context to classify intent, so sending the full history would waste tokens on every request.
 - **`gpt-4o-mini` throughout:** plenty capable for constrained classifiers and guided responses, and noticeably cheaper than `gpt-4o` for this kind of work.
 - **Static response for `closed` phase:** no LLM call at all once the conversation is done.
 
@@ -68,7 +70,7 @@ State lives entirely on the server. The client echoes `conversationState` back o
 ## Challenges and Trade-offs
 
 - **Response/state mismatch:** an early version classified intent *after* generating the response. If they disagreed, the UI said one thing and the state was somewhere else. Pre-classifying first fixed it.
-- **Reboot question loop / token cost:** without `abort`, a user who never confirms a step would stay in the `question` branch forever, burning tokens every message. `abort` exits cleanly.
+- **Reboot question loop / token cost:** without `abort`, a user who never confirms a step would stay in the `question` branch forever, burning tokens every message. `abort` exits cleanly. Token cost is further controlled by capping message history (20 messages) and using a shorter context window (8 messages) for classifier calls that only need recent intent.
 - **Backward navigation:** not implemented here. The `question` classifier covers the common case: if a user is confused or missed something, it stays on the current step and re-explains. A reboot flow also happens to be a case where going back doesn't add much since the steps are physical and sequential. In a different type of guided flow it would be more valuable.
 - **State is not persisted:** server restart resets everything. A production version would need a session store or a DB row.
 
