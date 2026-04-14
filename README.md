@@ -1,6 +1,6 @@
 # WiFi Assistant
 
-An AI-powered chatbot that diagnoses WiFi issues and walks users through a structured router reboot flow based on the Linksys EA6350.
+An AI-powered chatbot that diagnoses WiFi issues and walks users through guided troubleshooting flows. Currently supports router reboot (Linksys EA6350).
 
 ## Setup
 
@@ -45,7 +45,7 @@ State lives entirely on the server. The client echoes `conversationState` back o
 
 **Conversation phases:** `qualifying` -> `guided-steps` -> `resolution` -> `closed`
 
-**Issue registry:** Issue types (currently `reboot`) are defined in `issueRegistry`, each owning its step groups and prompt strings. Adding a new issue type means adding one entry there; the rest of the flow picks it up automatically.
+**Issue registry:** Issue types (currently `reboot`) are defined in `issueRegistry` in `stepGroups.ts`, each owning its qualifying config, step groups, and prompt strings. Adding a new issue type requires changes in three places; the classifier, qualifying prompt, step routing, and resolution look-up all update automatically. See [Adding an Issue Type](#adding-an-issue-type) below.
 
 **Pre-classification:** A cheap classifier call (`max_tokens: 10`) runs before the response is generated, so the LLM gets an instruction matching what is about to happen rather than what just happened. Without this, the response and the state transition can disagree.
 
@@ -90,3 +90,59 @@ State lives entirely on the server. The client echoes `conversationState` back o
 Modelled after LangSmith: fixed inputs, expected labels, pass/fail, plus an LLM-as-judge step for response quality. LangSmith adds a UI with trace logging and dataset versioning; here it's Vitest fixtures hitting the live API directly.
 
 Evals are excluded from `npm test` and run separately via `npm run test:eval`.
+
+---
+
+## Adding an Issue Type
+
+**Three files to change — nothing else:**
+
+**1. `server/src/stateEngine/types.ts`** — extend the union:
+```ts
+export type IssueType = 'reboot' | 'dns';
+```
+Mirror the same change in **`client/src/types.ts`**.
+
+**2. `server/src/constants/yourSteps.ts`** — define steps using the shared `Step` interface:
+```ts
+import { Step } from '../stateEngine/types';
+export const dnsSteps: Step[] = [
+  { id: 1, message: '...', waitForUser: true },
+  ...
+];
+```
+Steps with `waitForUser: false` are shown automatically and bundled with the next confirmation step so the user isn't prompted after every action.
+
+**3. `server/src/stateEngine/stepGroups.ts`** — add an entry to `issueRegistry`:
+```ts
+import { dnsSteps } from '../constants/dnsSteps';
+
+// in issueRegistry:
+dns: {
+  qualifying: {
+    classifierDescription: 'The issue affects one device and looks like a DNS problem',
+    exitCriteria: 'all devices are affected, the router needs rebooting, or ISP outage is suspected',
+    suggestedQuestions: ['Can you reach any websites, or is it just one?', '...'],
+  },
+  steps: buildStepGroups(dnsSteps),
+  prompts: {
+    start: 'Qualifying is complete and a DNS flush is the right next step. Let the user know and ask them to confirm before you begin.',
+    questionContext: 'a DNS flush',
+    abort: 'The user no longer wants to continue. Acknowledge warmly and close.',
+    stepsComplete: 'The DNS steps are complete. Ask the user if their issue is resolved.',
+    resolution: 'This is your final message. The DNS fix is complete. ...',
+  },
+},
+```
+
+---
+
+### Prompting notes
+
+- **`classifierDescription`** is inserted verbatim into the classifier system prompt alongside all other issue types. Make it a single, specific "when to choose this" sentence — the model picks between labels and ambiguity causes misroutes.
+- **`exitCriteria`** feeds the qualifying prompt's exit condition. Write it as a fragment: *"only one device is affected, a specific website is down..."* — it gets joined with other issues' criteria and prefixed with "guided troubleshooting won't help:".
+- **`suggestedQuestions`** are a pool, not a script. The qualifying LLM picks the 1–2 most relevant ones per turn. Write them as complete natural-language questions; include enough variety to cover different points in the diagnostic.
+- **`start`** runs once when qualifying resolves to this issue. Be explicit: tell the LLM to confirm the user is ready before presenting any steps. Without this it often skips straight to step 1.
+- **`resolution`** is the final message. Include explicit "do NOT ask follow-up questions" language — without it the model defaults to "Is there anything else I can help with?" and the conversation never ends.
+- **Classifier confidence threshold** (`CONFIDENCE_THRESHOLD = 0.4`) applies to all classifiers. If your new issue type is conceptually close to an existing one, the model may stay in `'unclear'` longer than expected. Sharpen the `classifierDescription` values to make the labels more distinct.
+
