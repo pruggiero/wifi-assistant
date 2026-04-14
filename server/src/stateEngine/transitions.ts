@@ -43,6 +43,13 @@ async function classifyQualifying(
   messages: Message[],
   openai: OpenAI
 ): Promise<IssueType | 'exit' | 'continue' | 'unclear'> {
+  // Build issue descriptions from the registry so this prompt stays in sync automatically
+  const issueDescriptions = (Object.entries(issueRegistry) as [IssueType, (typeof issueRegistry)[IssueType]][])
+    .map(([key, config]) => `- ${key}: ${config.qualifying.classifierDescription}`)
+    .join('\n');
+  const issueKeys = Object.keys(issueRegistry) as IssueType[];
+  const labelList = [...issueKeys, 'exit', 'continue'].join(', ');
+
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0,
@@ -57,13 +64,13 @@ async function classifyQualifying(
       {
         role: 'user',
         content: `Based on the conversation so far, what should happen next?
-- reboot: The user's issue affects ALL devices on the network and a router reboot is appropriate
-- exit: A reboot won't help. Choose exit when the user has explicitly named other devices (e.g. phone, tablet, another laptop) that are working fine on the same network and only one device is affected. Also exit for: specific website is down, ISP outage suspected, physical hardware damage.
+${issueDescriptions}
+- exit: Guided troubleshooting won't help. Choose exit when the user has explicitly named other devices (e.g. phone, tablet, another laptop) that are working fine and only one device is affected. Also exit for: specific website is down, ISP outage suspected, physical hardware damage.
 - continue: Not enough information yet. Use this when: it is ambiguous whether other devices are affected, the user says "just my laptop" without mentioning whether other devices exist or work, or the user only has one device. When in doubt, choose continue.
 
 IMPORTANT: A user saying only "just my laptop" or "only my laptop" without mentioning other working devices is NOT enough to choose exit. Choose continue and ask if other devices are affected.
 
-Reply with exactly one word: reboot, exit, or continue`,
+Reply with exactly one word: ${labelList}`,
       },
     ],
     max_tokens: 10,
@@ -73,17 +80,20 @@ Reply with exactly one word: reboot, exit, or continue`,
   if (Math.exp(logprob) < CONFIDENCE_THRESHOLD) return 'unclear';
 
   const text = completion.choices[0].message.content?.toLowerCase().trim() ?? 'continue';
-  if (text.startsWith('reboot')) return 'reboot';
+  const matched = issueKeys.find(k => text.startsWith(k));
+  if (matched) return matched;
   if (text.startsWith('exit')) return 'exit';
   return 'continue';
 }
 
-async function classifyRebootResponse(
+async function classifyStepResponse(
   messages: Message[],
   currentStepMessage: string,
-  openai: OpenAI
+  openai: OpenAI,
+  issueType?: IssueType | null
 ): Promise<'confirm' | 'question' | 'abort' | 'unclear'> {
   const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
+  const flowContext = issueType ? issueRegistry[issueType].prompts.questionContext : 'the guided steps';
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
@@ -97,13 +107,13 @@ async function classifyRebootResponse(
       },
       {
         role: 'user',
-        content: `A user is being guided through a router reboot. They were asked to complete this step: "${currentStepMessage}"
+        content: `A user is being guided through ${flowContext}. They were asked to complete this step: "${currentStepMessage}"
 Their response was: "${lastUserMessage}"
 
 Classify their response:
 - confirm: they completed the step, are ready to continue, or said something like "done", "ok", "ready"
 - question: they are asking for clarification, made a mistake, or need help with the current step
-- abort: their issue is resolved or they no longer need the reboot (e.g. "it's working now", "nevermind", "never mind")
+- abort: their issue is resolved or they no longer need the flow (e.g. "it's working now", "nevermind", "never mind")
 
 Reply with exactly one word: confirm, question, or abort`,
       },
@@ -120,4 +130,4 @@ Reply with exactly one word: confirm, question, or abort`,
   return 'confirm';
 }
 
-export { classifyQualifying, classifyRebootResponse };
+export { classifyQualifying, classifyStepResponse };

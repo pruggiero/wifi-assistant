@@ -17,7 +17,22 @@ export interface IssuePrompts {
   stepsComplete: string;
 }
 
+export interface IssueQualifying {
+  /**
+   * One-line description used in the classifier prompt — when should this issue type be chosen?
+   * Add a new entry here when registering a new issue type.
+   */
+  classifierDescription: string;
+  /**
+   * Diagnostic questions to ask the user during the qualifying phase.
+   * Questions from all issue types are merged and shown together so the LLM can gather
+   * enough information to distinguish between them.
+   */
+  questions: string[];
+}
+
 export interface IssueConfig {
+  qualifying: IssueQualifying;
   steps: StepGroup[];
   prompts: IssuePrompts;
 }
@@ -56,9 +71,26 @@ function buildStepGroups(steps: RebootStep[]): StepGroup[] {
   return groups;
 }
 
-// Registry of issue configs keyed by issue type — add an entry here to support a new issue type
+/**
+ * Registry of issue configs keyed by issue type.
+ *
+ * To add a new issue type:
+ *   1. Add the type name to the IssueType union in types.ts
+ *   2. Create a steps constant (see rebootSteps.ts for the shape)
+ *   3. Add an entry here with qualifying, steps, and prompts
+ *
+ * The rest of the flow — routing, state machine, classifiers, prompt builder — picks it up automatically.
+ */
 export const issueRegistry: Record<IssueType, IssueConfig> = {
   reboot: {
+    qualifying: {
+      classifierDescription: `The user's issue affects ALL devices on the network and a router reboot is appropriate`,
+      questions: [
+        'Is the issue affecting all devices, or just one?',
+        'Have you made any recent changes - like moving the router, adding a new device, or changing any settings?',
+        'Are any lights on your router showing red, or are any lights off that are usually on?',
+      ],
+    },
     steps: buildStepGroups(rebootSteps),
     prompts: {
       start: `The qualifying questions are complete and a router reboot is the right next step. Tell the user you are going to walk them through a reboot and ask them to confirm they are ready before you begin.`,

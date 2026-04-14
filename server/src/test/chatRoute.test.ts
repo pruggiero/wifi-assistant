@@ -50,7 +50,7 @@ describe('POST /api/chat - unclear classifier response', () => {
 
   it('closes conversation when reboot classifier returns unclear', async () => {
     const transitions = await import('../stateEngine/transitions');
-    vi.spyOn(transitions, 'classifyRebootResponse').mockResolvedValue('unclear');
+    vi.spyOn(transitions, 'classifyStepResponse').mockResolvedValue('unclear');
 
     const res = await request(app)
       .post('/api/chat')

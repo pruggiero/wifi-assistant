@@ -9,9 +9,9 @@ const itLive = hasKey ? it : it.skip;
 async function getClassifier() {
   const OpenAI = (await import('openai')).default;
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const { classifyRebootResponse } = await import('../stateEngine/transitions');
+  const { classifyStepResponse } = await import('../stateEngine/transitions');
   return (messages: { role: 'user' | 'assistant'; content: string }[], stepMsg: string) =>
-    classifyRebootResponse(messages, stepMsg, openai);
+    classifyStepResponse(messages, stepMsg, openai, 'reboot');
 }
 
 const UNPLUG_STEP = 'Please unplug the power cable from both your router and modem.';

@@ -3,7 +3,7 @@ import { Router, Request, Response } from 'express';
 import { SYSTEM_PROMPT } from '../constants/systemPrompt';
 import { INITIAL_STATE, ConversationState, IssueType, Message } from '../stateEngine/types';
 import { buildInstruction } from '../stateEngine/promptBuilder';
-import { getNextState, classifyQualifying, classifyRebootResponse } from '../stateEngine/transitions';
+import { getNextState, classifyQualifying, classifyStepResponse } from '../stateEngine/transitions';
 import { issueRegistry } from '../stateEngine/stepGroups';
 
 const router = Router();
@@ -91,18 +91,18 @@ router.post('/', async (req: Request, res: Response) => {
       nextState = { phase: 'resolution', issueType: null, stepIndex: 0 };
     } else {
       try {
-        const rebootDecision = await classifyRebootResponse(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), group.confirmStep.message, openai);
-        if (rebootDecision === 'unclear') {
+        const stepDecision = await classifyStepResponse(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), group.confirmStep.message, openai, state.issueType);
+        if (stepDecision === 'unclear') {
           res.json({
             message: { role: 'assistant', content: "I'm having trouble understanding your response. Please try rephrasing, or refresh the page to start a new session." },
             nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
           });
           return;
         }
-        if (rebootDecision === 'question') {
+        if (stepDecision === 'question') {
           instruction = buildInstruction({ phase: 'flow-question', issueType: state.issueType, stepIndex: state.stepIndex });
           nextState = state; // stay on current step
-        } else if (rebootDecision === 'abort') {
+        } else if (stepDecision === 'abort') {
           instruction = buildInstruction({ phase: 'flow-abort', issueType: state.issueType, stepIndex: state.stepIndex });
           nextState = { phase: 'closed', issueType: null, stepIndex: 0 };
         } else {

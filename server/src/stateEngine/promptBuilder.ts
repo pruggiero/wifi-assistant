@@ -27,14 +27,13 @@ export function buildInstruction(state: InstructionState): string {
       return prompts?.abort ?? `The user has indicated they no longer need to continue. Acknowledge this warmly and close the conversation. Do NOT ask any follow-up questions.`;
     }
 
-    case 'qualifying':
-      return `Ask the user these qualifying questions to determine if a router reboot is appropriate:
-1. Is the issue affecting all devices, or just one?
-2. Have you made any recent changes - like moving the router, adding a new device, or changing any settings?
-3. Are any lights on your router showing red, or are any lights off that are usually on?
-
-If this appears to be the start of the conversation, greet the user warmly before asking.
-Gather their answers - do not make any decision yet.`;
+    case 'qualifying': {
+      // Questions are merged from all issue types so the LLM can gather enough info to classify
+      const questions = Object.values(issueRegistry).flatMap(c => c.qualifying.questions);
+      const unique = [...new Set(questions)];
+      const numbered = unique.map((q, i) => `${i + 1}. ${q}`).join('\n');
+      return `Ask the user these qualifying questions:\n${numbered}\n\nIf this appears to be the start of the conversation, greet the user warmly before asking.\nGather their answers - do not make any decision yet.`;
+    }
 
     case 'guided-steps': {
       const config = state.issueType ? issueRegistry[state.issueType] : null;
