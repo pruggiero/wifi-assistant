@@ -52,13 +52,13 @@ export function buildInstruction(state: InstructionState): string {
         const last = group.confirmStep;
         return `Guide the user through these steps:
 
-${autoSteps.map(s => `Step ${s.id}: "${s.message}" - present this and immediately move on.`).join('\n')}
-Step ${last.id}: "${last.message}" - ask the user to confirm when they have completed this step before continuing.`;
+${autoSteps.map(s => `Step ${s.id}: "${s.message}" - relay this verbatim and immediately move on.`).join('\n')}
+Step ${last.id}: "${last.message}" - relay this verbatim and ask the user to confirm when they have completed this step before continuing.`;
       }
 
       return `Guide the user through this step:
 Step ${group.confirmStep.id}: "${group.confirmStep.message}"
-Ask the user to confirm when they've completed it before continuing.`;
+Relay this verbatim and ask the user to confirm when they've completed it before continuing.`;
     }
 
     case 'resolution': {
