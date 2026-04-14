@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import request from 'supertest';
 import { app } from '../app';
 
@@ -26,5 +26,41 @@ describe('POST /api/chat - closed phase (no OpenAI call)', () => {
       .send({ state: { phase: 'closed', rebootGroupIndex: 0 } });
 
     expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/chat - unclear classifier response', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('closes conversation when qualifying classifier returns unclear', async () => {
+    const transitions = await import('../stateEngine/transitions');
+    vi.spyOn(transitions, 'classifyQualifyingForTest').mockResolvedValue('unclear');
+
+    const res = await request(app)
+      .post('/api/chat')
+      .send({
+        messages: [{ role: 'user', content: 'asdfghjkl' }],
+        state: { phase: 'qualifying', rebootGroupIndex: 0 },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.nextState).toEqual({ phase: 'closed', rebootGroupIndex: 0 });
+    expect(res.body.message.content).toContain('trouble understanding');
+  });
+
+  it('closes conversation when reboot classifier returns unclear', async () => {
+    const transitions = await import('../stateEngine/transitions');
+    vi.spyOn(transitions, 'classifyRebootResponseForTest').mockResolvedValue('unclear');
+
+    const res = await request(app)
+      .post('/api/chat')
+      .send({
+        messages: [{ role: 'user', content: 'asdfghjkl' }],
+        state: { phase: 'reboot', rebootGroupIndex: 0 },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.nextState).toEqual({ phase: 'closed', rebootGroupIndex: 0 });
+    expect(res.body.message.content).toContain('trouble understanding');
   });
 });
