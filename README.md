@@ -85,6 +85,7 @@ State is server-owned. The client sends `conversationState` back with each reque
 - **Single-device routing:** the classifier was routing "only my laptop has no WiFi" to `reboot`. Requiring the user to explicitly name other working devices before choosing `exit` fixed it without breaking the ambiguous case. Two eval cases cover both sides.
 - **Mid-step corrections:** "oh wait I made a mistake, let me try again" classifies as `question`, the current step re-prompts, and state does not advance. No special handling needed.
 - **Resolution follow-up questions:** without explicit instruction the model defaults to "Is there anything else I can help you with?" Adding "This is your final message. Do NOT ask follow-up questions." to the resolution prompt stopped it.
+- **Partial resolution improvisation:** when the reboot fixed one device but not another, the model improvised further troubleshooting steps outside its designed flow. The resolution prompt now covers the partial success case explicitly and closes by referring to ISP/technician. The right long-term fix would be a separate issue type (e.g. `device-reconnect`) rather than allowing the resolution LLM to freelance - the tool should only guide through flows it has been designed and tested to run.
 
 ---
 
