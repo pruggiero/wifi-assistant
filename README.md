@@ -47,7 +47,7 @@ State is server-owned. The client sends `conversationState` back with each reque
 
 **Issue registry:** Issue types are defined in `issueRegistry` in `stepGroups.ts`. Each entry owns its qualifying config, step groups, and prompts. The classifier, qualifying prompt, routing, and resolution look-up all read from the registry. See [Adding an Issue Type](#adding-an-issue-type).
 
-**Pre-classification:** A lightweight classifier call (`max_tokens: 10`) runs before the response is generated, so the LLM instruction matches the transition that is about to happen. Without this, the response and state can disagree.
+**Pre-classification:** Two lightweight classifier calls run before the response is generated. `classifyExit` is a yes/no gate — it fires when guided troubleshooting is not appropriate (e.g. ISP outage, single device affected). If it does not fire, `classifyIssueType` routes to the matching issue type or returns `continue` to keep qualifying. Both use `max_tokens: 10`. Pre-classifying first means the LLM instruction always matches the state transition that is about to happen — without this, the response and state can disagree.
 
 **Step grouping:** Steps are bundled into groups. Non-waiting steps are folded into the next confirmation step, so the user is not prompted after every individual action. The reboot flow has 6 steps across 4 groups.
 
@@ -130,7 +130,10 @@ newIssue: {
     routingSignals: [
       'condition sufficient to route here even without multi-device confirmation, e.g. "router shows abnormal lights"',
     ],
-    exitCriteria: 'Fragment describing when guided steps won\'t help, e.g. "only one device is affected, ..."',
+    exitCriteria: [
+      'one standalone condition per entry, e.g. "only one device is affected and others confirmed working"',
+      'another condition under which guided troubleshooting should be skipped',
+    ],
     suggestedQuestions: [
       'A diagnostic question relevant to this issue type.',
       'Another question covering a different angle.',
