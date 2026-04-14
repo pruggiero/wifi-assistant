@@ -68,7 +68,7 @@ State is server-owned. The client sends `conversationState` back with each reque
 
 ## Trade-offs
 
-- **Qualifying loop:** without a turn limit, qualifying could run indefinitely. `MAX_QUALIFYING_TURNS = 5` closes gracefully if no issue is identified in time.
+- **Qualifying loop:** without a turn limit, qualifying could run indefinitely. `MAX_QUALIFYING_TURNS = 7` closes gracefully if no issue is identified in time.
 - **Backward navigation:** not implemented. The `question` classifier handles the common case - if a user is confused or missed a step, the flow stays on the current step and re-explains. For a physical reboot sequence, going back adds little value.
 - **Linear step flow:** steps advance sequentially. If a future flow needs conditional branching (e.g. "combo unit or separate modem and router?"), `StepGroup` would need `branchOutcomes` and a `nextOnOutcome` map, with the step classifier returning a branch label rather than plain `confirm`.
 - **Qualifying context not carried into the flow:** `ConversationState` only tracks `issueType` and `stepIndex`. Anything learned during qualifying (device type, symptoms, what the user has already tried) lives in message history but not in state. If steps need to vary based on qualifying answers, the options are a `context` bag on `ConversationState` populated by an extraction step, or separate `IssueType` entries per variant.

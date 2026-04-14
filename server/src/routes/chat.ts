@@ -13,7 +13,7 @@ const VALID_ROLES = new Set(['user', 'assistant']);
 const MAX_MESSAGES = 25;          // full flow is ~16-22 messages; 25 gives a buffer without being unbounded
 const MAX_MESSAGE_LENGTH = 500;   // user replies are short; blocks prompt injection
 const CLASSIFIER_MESSAGES = 8;    // classifiers need recent context only
-const MAX_QUALIFYING_TURNS = 5;   // if still unclassified after 5 user turns, close gracefully
+const MAX_QUALIFYING_TURNS = 7;   // if still unclassified after 7 user turns, close gracefully
 
 function isValidState(state: unknown): state is ConversationState {
   if (!state || typeof state !== 'object') return false;

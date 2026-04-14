@@ -67,6 +67,7 @@ ${issueDescriptions}
 
 IMPORTANT: A user saying only "just my laptop" or "only my laptop" without mentioning other working devices is NOT enough to choose exit. Choose continue and ask if other devices are affected.
 IMPORTANT: If the user has only one device but the router shows symptoms (e.g. red lights, lights off that are usually on), that is sufficient to choose reboot - do not require multiple devices.
+IMPORTANT: If the user made recent changes (moved the router, added a new device, changed network settings), that is a router-level signal sufficient to choose reboot even if only one device is affected.
 
 Reply with exactly one word: ${labelList}`,
       },
