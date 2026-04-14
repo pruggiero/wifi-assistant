@@ -58,6 +58,12 @@
   font-size: 14px;
 }
 
+.chat-status--closed {
+  color: #6b7280;
+  font-style: italic;
+  text-align: center;
+}
+
 .chat-error {
   color: #dc2626;
   font-size: 14px;

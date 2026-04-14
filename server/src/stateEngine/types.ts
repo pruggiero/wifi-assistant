@@ -1,14 +1,9 @@
-export interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
 export interface ConversationState {
   phase: 'qualifying' | 'reboot' | 'resolution' | 'closed';
   rebootGroupIndex: number;
 }
 
-export const INITIAL_CONVERSATION_STATE: ConversationState = {
+export const INITIAL_STATE: ConversationState = {
   phase: 'qualifying',
   rebootGroupIndex: 0,
 };

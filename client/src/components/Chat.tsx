@@ -4,8 +4,9 @@ import { useChat } from '../hooks/useChat';
 import './Chat.css';
 
 export function Chat() {
-  const { messages, isLoading, error, sendMessage } = useChat();
+  const { messages, isLoading, error, sendMessage, conversationState } = useChat();
   const [input, setInput] = useState('');
+  const isClosed = conversationState.phase === 'closed';
 
   const handleSend = () => {
     void sendMessage(input);
@@ -31,6 +32,7 @@ export function Chat() {
         ))}
         {isLoading && <p className="chat-status">Thinking...</p>}
         {error && <p className="chat-error">{error}</p>}
+        {isClosed && <p className="chat-status chat-status--closed">This conversation has ended.</p>}
       </div>
 
       <div className="chat-input-row">
@@ -39,13 +41,13 @@ export function Chat() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Describe your WiFi issue..."
-          disabled={isLoading}
+          placeholder={isClosed ? 'Conversation ended' : 'Type a message...'}
+          disabled={isLoading || isClosed}
           className="chat-input"
         />
         <button
           onClick={handleSend}
-          disabled={isLoading || !input.trim()}
+          disabled={isLoading || isClosed || !input.trim()}
           className="chat-send-button"
         >
           Send

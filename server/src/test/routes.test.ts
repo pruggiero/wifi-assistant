@@ -9,7 +9,10 @@ vi.mock('../routes/chat', () => {
     if (!req.body.messages || !Array.isArray(req.body.messages)) {
       return res.status(400).json({ error: 'messages array is required' });
     }
-    res.json({ message: { role: 'assistant', content: 'mocked response' } });
+    res.json({
+      message: { role: 'assistant', content: 'mocked response' },
+      nextState: { phase: 'qualifying', rebootGroupIndex: 0 },
+    });
   });
   return { default: router };
 });
@@ -25,12 +28,13 @@ describe('GET /api/health', () => {
 });
 
 describe('POST /api/chat', () => {
-  it('returns a message object', async () => {
+  it('returns a message and nextState', async () => {
     const res = await request(app)
       .post('/api/chat')
       .send({ messages: [{ role: 'user', content: 'test' }] });
     expect(res.status).toBe(200);
     expect(res.body.message).toBeDefined();
+    expect(res.body.nextState).toBeDefined();
   });
 
   it('returns 400 when messages are missing', async () => {

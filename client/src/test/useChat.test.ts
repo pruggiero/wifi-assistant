@@ -7,17 +7,21 @@ describe('useChat', () => {
     vi.resetAllMocks();
   });
 
-  it('starts with empty messages', () => {
+  it('starts with empty messages and qualifying state', () => {
     const { result } = renderHook(() => useChat());
     expect(result.current.messages).toEqual([]);
     expect(result.current.isLoading).toBe(false);
     expect(result.current.error).toBeNull();
+    expect(result.current.conversationState).toEqual({ phase: 'qualifying', rebootGroupIndex: 0 });
   });
 
-  it('adds user message and assistant reply on successful send', async () => {
+  it('adds user message and assistant reply, and updates state on successful send', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ message: { content: 'Hello! How can I help?' } }),
+      json: async () => ({
+        message: { content: 'Hello! How can I help?' },
+        nextState: { phase: 'reboot', rebootGroupIndex: 0 },
+      }),
     }));
 
     const { result } = renderHook(() => useChat());
@@ -29,6 +33,7 @@ describe('useChat', () => {
     expect(result.current.messages).toHaveLength(2);
     expect(result.current.messages[0]).toEqual({ role: 'user', content: 'My WiFi is down' });
     expect(result.current.messages[1]).toEqual({ role: 'assistant', content: 'Hello! How can I help?' });
+    expect(result.current.conversationState).toEqual({ phase: 'reboot', rebootGroupIndex: 0 });
   });
 
   it('sets error when request fails', async () => {
