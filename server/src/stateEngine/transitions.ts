@@ -53,8 +53,10 @@ async function classifyQualifying(
         role: 'user',
         content: `Based on the conversation so far, what should happen next?
 - reboot: The user's issue affects ALL devices on the network and a router reboot is appropriate
-- exit: A reboot won't help - this includes: issue affects only ONE device (not the whole network), specific website is down, ISP outage suspected, physical hardware damage. IMPORTANT: if only one device is affected, always choose exit.
-- continue: Not enough information has been gathered yet to decide
+- exit: A reboot won't help. Choose exit when the user has explicitly named other devices (e.g. phone, tablet, another laptop) that are working fine on the same network and only one device is affected. Also exit for: specific website is down, ISP outage suspected, physical hardware damage.
+- continue: Not enough information yet. Use this when: it is ambiguous whether other devices are affected, the user says "just my laptop" without mentioning whether other devices exist or work, or the user only has one device. When in doubt, choose continue.
+
+IMPORTANT: A user saying only "just my laptop" or "only my laptop" without mentioning other working devices is NOT enough to choose exit. Choose continue and ask if other devices are affected.
 
 Reply with exactly one word: reboot, exit, or continue`,
       },

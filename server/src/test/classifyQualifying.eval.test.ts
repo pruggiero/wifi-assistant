@@ -81,4 +81,14 @@ describe('classifyQualifying (integration)', () => {
     ]);
     expect(result).toBe('continue');
   });
+
+  // User only has one device - can't confirm if others are affected, need more info
+  itLive('returns continue when user only has one device and cannot compare', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one? Have you made any recent changes? Are any lights on your router red or off?' },
+      { role: 'user', content: 'I only have one device, my laptop, no changes, lights look normal' },
+    ]);
+    expect(result).toBe('continue');
+  });
 });
