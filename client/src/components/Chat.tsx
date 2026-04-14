@@ -21,7 +21,7 @@ export function Chat() {
     <div>
       <div className="chat-messages">
         {messages.map((msg, i) => (
-          <div key={i} className={`chat-message chat-message--${msg.role}`}>
+          <div key={`${msg.role}-${i}`} className={`chat-message chat-message--${msg.role}`}>
             <span className={`chat-bubble chat-bubble--${msg.role}`}>
               {msg.role === 'assistant'
                 ? <ReactMarkdown>{msg.content}</ReactMarkdown>
