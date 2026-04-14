@@ -42,7 +42,13 @@ async function classifyQualifying(
   openai: OpenAI
 ): Promise<IssueType | 'exit' | 'continue' | 'unclear'> {
   const issueDescriptions = (Object.entries(issueRegistry) as [IssueType, (typeof issueRegistry)[IssueType]][])
-    .map(([key, config]) => `- ${key}: ${config.qualifying.classifierDescription}`)
+    .map(([key, config]) => {
+      const signals = config.qualifying.routingSignals;
+      const signalLines = signals?.length
+        ? `\n  Also choose ${key} when:\n${signals.map(s => `  - ${s}`).join('\n')}`
+        : '';
+      return `- ${key}: ${config.qualifying.classifierDescription}${signalLines}`;
+    })
     .join('\n');
   const issueKeys = Object.keys(issueRegistry) as IssueType[];
   const labelList = [...issueKeys, 'exit', 'continue'].join(', ');
@@ -63,11 +69,9 @@ async function classifyQualifying(
         content: `Based on the conversation so far, what should happen next?
 ${issueDescriptions}
 - exit: Guided troubleshooting won't help. Choose exit when the user has explicitly named other devices (e.g. phone, tablet, another laptop) that are working fine and only one device is affected. Also exit for: specific website is down, ISP outage suspected, physical hardware damage.
-- continue: Not enough information yet. Use this when: it is ambiguous whether other devices are affected, the user says "just my laptop" without mentioning whether other devices exist or work, or the user only has one device AND there are no router-level symptoms (e.g. no abnormal lights mentioned). When in doubt, choose continue.
+- continue: Not enough information yet. Use this when: it is ambiguous whether other devices are affected, the user says "just my laptop" without mentioning whether other devices exist or work, or the user only has one device with no other routing signals present. When in doubt, choose continue.
 
 IMPORTANT: A user saying only "just my laptop" or "only my laptop" without mentioning other working devices is NOT enough to choose exit. Choose continue and ask if other devices are affected.
-IMPORTANT: If the user has only one device but the router shows symptoms (e.g. red lights, lights off that are usually on), that is sufficient to choose reboot - do not require multiple devices.
-IMPORTANT: If the user made recent changes (moved the router, added a new device, changed network settings), that is a router-level signal sufficient to choose reboot even if only one device is affected.
 
 Reply with exactly one word: ${labelList}`,
       },

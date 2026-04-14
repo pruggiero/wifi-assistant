@@ -127,6 +127,9 @@ import { newIssueSteps } from '../constants/newIssueSteps';
 newIssue: {
   qualifying: {
     classifierDescription: 'One sentence: when should the classifier choose this issue type over others.',
+    routingSignals: [
+      'condition sufficient to route here even without multi-device confirmation, e.g. "router shows abnormal lights"',
+    ],
     exitCriteria: 'Fragment describing when guided steps won\'t help, e.g. "only one device is affected, ..."',
     suggestedQuestions: [
       'A diagnostic question relevant to this issue type.',
@@ -147,6 +150,7 @@ newIssue: {
 A few things to keep in mind when writing the prompts for a new entry:
 
 - **`classifierDescription`** - one specific "when to choose this" sentence. The model picks between labels, so ambiguity between two similar descriptions causes misroutes. If your new issue is conceptually close to an existing one, sharpen both descriptions until the distinction is clear.
+- **`routingSignals`** - optional list of conditions that are sufficient to route here even without multi-device confirmation. Each is a short fragment (e.g. `'router shows abnormal lights'`). The classifier renders them as "Also choose X when: ..." lines. Keeps issue-specific routing logic inside the registry rather than hardcoded in the classifier.
 - **`exitCriteria`** - write as a fragment (*"only one device is affected..."*); it is joined with other issues' criteria and prefixed automatically. Only needed when there is a meaningful "wrong path" case for this issue type.
 - **`suggestedQuestions`** - a pool, not a script. The LLM picks the 1-2 most relevant per turn. Cover different angles so it has something useful to ask at each stage of the diagnostic.
 - **`start`** - runs once when qualifying resolves. Be explicit that the LLM should confirm the user is ready before presenting any steps - without it the model often skips straight to step 1.

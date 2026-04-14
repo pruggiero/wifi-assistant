@@ -19,6 +19,10 @@ export interface IssuePrompts {
 export interface IssueQualifying {
   /** Used verbatim in the classifier prompt. One sentence: when should this type be chosen? */
   classifierDescription: string;
+  /** Additional conditions sufficient to route to this issue type regardless of device count.
+   *  Each entry is a short fragment, e.g. "router shows abnormal lights (red, or lights off that are usually on)".
+   *  Rendered as "Also choose <issueType> when: <signal>" in the classifier prompt. */
+  routingSignals?: string[];
   /** Written as a fragment; joined with other issues' criteria in the qualifying prompt. */
   exitCriteria?: string;
   /** Suggestion pool - the LLM picks the most relevant 1-2 per turn, not the full list. */
@@ -70,7 +74,11 @@ function buildStepGroups(steps: Step[]): StepGroup[] {
 export const issueRegistry: Record<IssueType, IssueConfig> = {
   reboot: {
     qualifying: {
-      classifierDescription: `The user's issue affects ALL devices on the network and a router reboot is appropriate. Also choose reboot when the user has only one device but the router itself shows symptoms (e.g. red or abnormal lights) indicating a router-level problem, or when the user made recent changes (moved the router, added a new device, changed network settings) that likely disrupted the router`,
+      classifierDescription: `The user's issue affects all devices on the network and a router reboot is appropriate`,
+      routingSignals: [
+        'router shows abnormal lights (red, or lights off that are usually on)',
+        'user made recent network changes (moved the router, added a new device, changed settings) that likely disrupted the router',
+      ],
       exitCriteria: 'only one device is affected, a specific website is down, an ISP outage is suspected, or there is physical hardware damage',
       suggestedQuestions: [
         'Is the issue affecting all devices, or just one?',
