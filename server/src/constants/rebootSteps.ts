@@ -1,10 +1,6 @@
-export interface RebootStep {
-  id: number;
-  message: string;
-  waitForUser: boolean;
-}
+import { Step } from '../stateEngine/types';
 
-export const rebootSteps: RebootStep[] = [
+export const rebootSteps: Step[] = [
   {
     id: 1,
     message: 'Please unplug the power cable from both your router and modem.',

@@ -1,9 +1,9 @@
-import { rebootSteps, RebootStep } from '../constants/rebootSteps';
-import { IssueType } from './types';
+import { rebootSteps } from '../constants/rebootSteps';
+import { IssueType, Step } from './types';
 
 export interface StepGroup {
-  presentSteps: RebootStep[];
-  confirmStep: RebootStep;
+  presentSteps: Step[];
+  confirmStep: Step;
 }
 
 export interface IssuePrompts {
@@ -53,12 +53,12 @@ export interface IssueConfig {
  *   Group 2: present [4],    confirm on 4
  *   Group 3: present [5, 6], confirm on 6
  */
-function buildStepGroups(steps: RebootStep[]): StepGroup[] {
+function buildStepGroups(steps: Step[]): StepGroup[] {
   const groups: StepGroup[] = [];
   let i = 0;
 
   while (i < steps.length) {
-    const group: RebootStep[] = [];
+    const group: Step[] = [];
 
     // Collect any non-waiting steps that precede the next waiting step
     while (i < steps.length && !steps[i].waitForUser) {
