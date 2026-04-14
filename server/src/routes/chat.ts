@@ -3,7 +3,8 @@ import { Router, Request, Response } from 'express';
 import { SYSTEM_PROMPT } from '../constants/systemPrompt';
 import { INITIAL_STATE, ConversationState } from '../stateEngine/types';
 import { buildInstruction } from '../stateEngine/promptBuilder';
-import { getNextState, classifyQualifyingForTest as classifyQualifying } from '../stateEngine/transitions';
+import { getNextState, classifyQualifyingForTest as classifyQualifying, classifyRebootResponseForTest as classifyRebootResponse } from '../stateEngine/transitions';
+import { stepGroups } from '../stateEngine/stepGroups';
 
 const router = Router();
 
@@ -55,6 +56,34 @@ router.post('/', async (req: Request, res: Response) => {
     } catch {
       instruction = buildInstruction(state);
       nextState = state;
+    }
+  } else if (state.phase === 'reboot') {
+    const group = stepGroups[state.rebootGroupIndex];
+    if (!group) {
+      // All groups done, transition to resolution
+      instruction = buildInstruction(state);
+      nextState = await getNextState(state, messages, openai);
+    } else {
+      try {
+        const rebootDecision = await classifyRebootResponse(messages, group.confirmStep.message, openai);
+        if (rebootDecision === 'question') {
+          instruction = buildInstruction({ phase: 'reboot-question', rebootGroupIndex: state.rebootGroupIndex });
+          nextState = state; // stay on current step
+        } else if (rebootDecision === 'abort') {
+          instruction = buildInstruction({ phase: 'reboot-abort', rebootGroupIndex: state.rebootGroupIndex });
+          nextState = { phase: 'closed', rebootGroupIndex: 0 };
+        } else {
+          // User confirmed - advance state and build instruction for what comes next
+          const nextGroupIndex = state.rebootGroupIndex + 1;
+          nextState = nextGroupIndex >= stepGroups.length
+            ? { phase: 'resolution', rebootGroupIndex: 0 }
+            : { phase: 'reboot', rebootGroupIndex: nextGroupIndex };
+          instruction = buildInstruction(nextState);
+        }
+      } catch {
+        instruction = buildInstruction(state);
+        nextState = await getNextState(state, messages, openai);
+      }
     }
   } else {
     instruction = buildInstruction(state);

@@ -1,7 +1,7 @@
 import { ConversationState } from './types';
 import { stepGroups } from './stepGroups';
 
-type InstructionState = ConversationState | { phase: 'exit-qualifying' | 'reboot-start'; rebootGroupIndex: 0 };
+type InstructionState = ConversationState | { phase: 'exit-qualifying' | 'reboot-start' | 'reboot-question' | 'reboot-abort'; rebootGroupIndex: number };
 
 export function buildInstruction(state: InstructionState): string {
   switch (state.phase) {
@@ -10,6 +10,15 @@ export function buildInstruction(state: InstructionState): string {
 
     case 'reboot-start':
       return `The qualifying questions are complete and a router reboot is the right next step. Tell the user you are going to walk them through a reboot and ask them to confirm they are ready before you begin.`;
+
+    case 'reboot-question': {
+      const group = stepGroups[state.rebootGroupIndex];
+      const stepDesc = group ? group.confirmStep.message : 'the current step';
+      return `The user has asked a question while being guided through a router reboot. Answer their question clearly and helpfully. After answering, remind them where they left off - they still need to complete this step: "${stepDesc}". Ask them to confirm when they have done so.`;
+    }
+
+    case 'reboot-abort':
+      return `The user has indicated their issue is resolved or they no longer need to continue the reboot. Acknowledge this warmly and close the conversation. Do NOT continue the reboot steps. Do NOT ask any follow-up questions.`;
 
     case 'qualifying':
       return `Ask the user these qualifying questions to determine if a router reboot is appropriate:

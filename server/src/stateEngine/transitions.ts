@@ -68,5 +68,41 @@ Reply with exactly one word: reboot, exit, or continue`,
   return 'continue';
 }
 
+async function classifyRebootResponse(
+  messages: Message[],
+  currentStepMessage: string,
+  openai: OpenAI
+): Promise<'confirm' | 'question' | 'abort'> {
+  const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
+
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: 'You are a classifier for a WiFi support chatbot. Reply with exactly one word.',
+      },
+      {
+        role: 'user',
+        content: `A user is being guided through a router reboot. They were asked to complete this step: "${currentStepMessage}"
+Their response was: "${lastUserMessage}"
+
+Classify their response:
+- confirm: they completed the step, are ready to continue, or said something like "done", "ok", "ready"
+- question: they are asking for clarification, made a mistake, or need help with the current step
+- abort: their issue is resolved or they no longer need the reboot (e.g. "it's working now", "nevermind", "never mind")
+
+Reply with exactly one word: confirm, question, or abort`,
+      },
+    ],
+    max_tokens: 10,
+  });
+
+  const text = completion.choices[0].message.content?.toLowerCase().trim() ?? 'confirm';
+  if (text.startsWith('question')) return 'question';
+  if (text.startsWith('abort')) return 'abort';
+  return 'confirm';
+}
+
 // Exported for eval tests only
-export { classifyQualifying as classifyQualifyingForTest };
+export { classifyQualifying as classifyQualifyingForTest, classifyRebootResponse as classifyRebootResponseForTest };
