@@ -2,13 +2,17 @@ import OpenAI from 'openai';
 import { Router, Request, Response } from 'express';
 import { SYSTEM_PROMPT } from '../constants/systemPrompt';
 import { INITIAL_STATE, ConversationState } from '../stateEngine/types';
-import { buildInstruction, InstructionState } from '../stateEngine/promptBuilder';
+import { buildInstruction } from '../stateEngine/promptBuilder';
 import { getNextState, classifyQualifyingForTest as classifyQualifying, classifyRebootResponseForTest as classifyRebootResponse } from '../stateEngine/transitions';
 import { stepGroups } from '../stateEngine/stepGroups';
 
 const router = Router();
 
 const VALID_PHASES = new Set(['qualifying', 'reboot', 'resolution', 'closed']);
+const VALID_ROLES = new Set(['user', 'assistant']);
+const MAX_MESSAGES = 20;          // full flow is ~16-22 messages
+const MAX_MESSAGE_LENGTH = 500;   // user replies are short; blocks prompt injection
+const CLASSIFIER_MESSAGES = 8;    // classifiers need recent context only
 
 function isValidState(state: unknown): state is ConversationState {
   if (!state || typeof state !== 'object') return false;
@@ -37,6 +41,11 @@ router.post('/', async (req: Request, res: Response) => {
     return;
   }
 
+  const sanitizedMessages: Message[] = messages
+    .filter((m) => VALID_ROLES.has(m?.role) && typeof m?.content === 'string')
+    .slice(-MAX_MESSAGES)
+    .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_LENGTH) }));
+
   const state: ConversationState = isValidState(rawState) ? rawState : INITIAL_STATE;
 
   const openai = getOpenAI();
@@ -55,7 +64,7 @@ router.post('/', async (req: Request, res: Response) => {
 
   if (state.phase === 'qualifying') {
     try {
-      const decision = await classifyQualifying(messages, openai);
+      const decision = await classifyQualifying(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), openai);
       if (decision === 'exit') {
         instruction = buildInstruction({ phase: 'exit-qualifying', rebootGroupIndex: 0 });
         nextState = { phase: 'closed', rebootGroupIndex: 0 };
@@ -75,10 +84,10 @@ router.post('/', async (req: Request, res: Response) => {
     if (!group) {
       // All groups done, transition to resolution
       instruction = buildInstruction(state);
-      nextState = await getNextState(state, messages, openai);
+      nextState = await getNextState(state, sanitizedMessages, openai);
     } else {
       try {
-        const rebootDecision = await classifyRebootResponse(messages, group.confirmStep.message, openai);
+        const rebootDecision = await classifyRebootResponse(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), group.confirmStep.message, openai);
         if (rebootDecision === 'question') {
           instruction = buildInstruction({ phase: 'reboot-question', rebootGroupIndex: state.rebootGroupIndex });
           nextState = state; // stay on current step
@@ -95,12 +104,12 @@ router.post('/', async (req: Request, res: Response) => {
         }
       } catch {
         instruction = buildInstruction(state);
-        nextState = await getNextState(state, messages, openai);
+        nextState = await getNextState(state, sanitizedMessages, openai);
       }
     }
   } else {
     instruction = buildInstruction(state);
-    nextState = await getNextState(state, messages, openai);
+    nextState = await getNextState(state, sanitizedMessages, openai);
   }
 
   try {
@@ -108,7 +117,7 @@ router.post('/', async (req: Request, res: Response) => {
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
-        ...messages,
+        ...sanitizedMessages,
       ],
     });
 
