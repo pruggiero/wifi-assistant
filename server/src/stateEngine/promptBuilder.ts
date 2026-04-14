@@ -1,4 +1,4 @@
-import { ConversationState, IssueType } from './types';
+﻿import { ConversationState, IssueType } from './types';
 import { issueRegistry } from './stepGroups';
 
 export type InstructionState = ConversationState | { phase: 'exit-qualifying' | 'flow-start' | 'flow-question' | 'flow-abort'; issueType: IssueType | null; stepIndex: number };
@@ -29,7 +29,7 @@ export function buildInstruction(state: InstructionState): string {
 
     case 'qualifying': {
       // Give the LLM the issue types and their signals, plus a pool of suggested questions.
-      // It should ask 1-2 of the most relevant ones based on what the user has said — not recite the full list.
+      // It should ask 1-2 of the most relevant ones based on what the user has said - not recite the full list.
       const issueContext = Object.values(issueRegistry)
         .map(c => `- ${c.qualifying.classifierDescription}\n  Useful questions: ${c.qualifying.suggestedQuestions.join(' | ')}`)
         .join('\n');
@@ -40,7 +40,7 @@ export function buildInstruction(state: InstructionState): string {
       const exitLine = exitCriteria
         ? `- exit: guided troubleshooting won't help: ${exitCriteria}`
         : `- exit: issue is out of scope (single device, specific site down, ISP outage, hardware damage)`;
-      return `You are gathering information to diagnose a WiFi issue. Your goal is to determine which of these applies:\n${issueContext}\n${exitLine}\n\nBased on what the user has already said, ask the 1-2 most relevant follow-up questions. Do not ask questions they have already answered. Do not list all questions at once.\n\nIf this is the start of the conversation, greet the user warmly and ask one opening question.\nDo not make a decision yet — just gather information.`;
+      return `You are gathering information to diagnose a WiFi issue. Your goal is to determine which of these applies:\n${issueContext}\n${exitLine}\n\nBased on what the user has already said, ask the 1-2 most relevant follow-up questions. Do not ask questions they have already answered. Do not list all questions at once.\n\nIf this is the start of the conversation, greet the user warmly and ask one opening question.\nDo not make a decision yet - just gather information.`;
     }
 
     case 'guided-steps': {

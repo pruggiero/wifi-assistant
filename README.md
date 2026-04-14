@@ -1,4 +1,4 @@
-# WiFi Assistant
+﻿# WiFi Assistant
 
 An AI-powered chatbot that diagnoses WiFi issues and walks users through guided troubleshooting flows. Currently supports router reboot (Linksys EA6350).
 
@@ -95,15 +95,15 @@ Evals are excluded from `npm test` and run separately via `npm run test:eval`.
 
 ## Adding an Issue Type
 
-**Three files to change — nothing else:**
+**Three files to change - nothing else:**
 
-**1. `server/src/stateEngine/types.ts`** — extend the union:
+**1. `server/src/stateEngine/types.ts`** - extend the union:
 ```ts
 export type IssueType = 'reboot' | 'dns';
 ```
 Mirror the same change in **`client/src/types.ts`**.
 
-**2. `server/src/constants/yourSteps.ts`** — define steps using the shared `Step` interface:
+**2. `server/src/constants/yourSteps.ts`** - define steps using the shared `Step` interface:
 ```ts
 import { Step } from '../stateEngine/types';
 export const dnsSteps: Step[] = [
@@ -113,7 +113,7 @@ export const dnsSteps: Step[] = [
 ```
 Steps with `waitForUser: false` are shown automatically and bundled with the next confirmation step so the user isn't prompted after every action.
 
-**3. `server/src/stateEngine/stepGroups.ts`** — add an entry to `issueRegistry`:
+**3. `server/src/stateEngine/stepGroups.ts`** - add an entry to `issueRegistry`:
 ```ts
 import { dnsSteps } from '../constants/dnsSteps';
 
@@ -137,12 +137,12 @@ dns: {
 
 A few things to keep in mind when writing the prompts for a new entry:
 
-- **`classifierDescription`** — one specific "when to choose this" sentence. The model picks between labels, so ambiguity between two similar descriptions causes misroutes. If your new issue is conceptually close to an existing one, sharpen both descriptions until the distinction is clear.
-- **`exitCriteria`** — write as a fragment (*"only one device is affected..."*); it's joined with other issues' criteria and prefixed automatically. Only needed when there's a meaningful "wrong path" case for this issue type.
-- **`suggestedQuestions`** — a pool, not a script. The LLM picks the 1–2 most relevant per turn. Cover different angles so it has something useful to ask at each stage of the diagnostic.
-- **`start`** — this runs once when qualifying resolves. Be explicit that the LLM should confirm the user is ready before presenting any steps — without it the model often skips straight to step 1.
-- **`questionContext`** — short phrase used mid-step when the user asks a clarifying question: *"the user has asked a question while being guided through {questionContext}"*. E.g. `'a DNS flush'` or `'a factory reset'`.
-- **`resolution`** — include "This is your final message" and "Do NOT ask follow-up questions" explicitly. Without both, the model often closes with "Is there anything else I can help you with?" and the conversation doesn't end. Cover the resolved and unresolved cases separately.
+- **`classifierDescription`** - one specific "when to choose this" sentence. The model picks between labels, so ambiguity between two similar descriptions causes misroutes. If your new issue is conceptually close to an existing one, sharpen both descriptions until the distinction is clear.
+- **`exitCriteria`** - write as a fragment (*"only one device is affected..."*); it's joined with other issues' criteria and prefixed automatically. Only needed when there's a meaningful "wrong path" case for this issue type.
+- **`suggestedQuestions`** - a pool, not a script. The LLM picks the 1–2 most relevant per turn. Cover different angles so it has something useful to ask at each stage of the diagnostic.
+- **`start`** - this runs once when qualifying resolves. Be explicit that the LLM should confirm the user is ready before presenting any steps - without it the model often skips straight to step 1.
+- **`questionContext`** - short phrase used mid-step when the user asks a clarifying question: *"the user has asked a question while being guided through {questionContext}"*. E.g. `'a DNS flush'` or `'a factory reset'`.
+- **`resolution`** - include "This is your final message" and "Do NOT ask follow-up questions" explicitly. Without both, the model often closes with "Is there anything else I can help you with?" and the conversation doesn't end. Cover the resolved and unresolved cases separately.
 
 
 

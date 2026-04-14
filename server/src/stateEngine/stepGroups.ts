@@ -1,4 +1,4 @@
-import { rebootSteps } from '../constants/rebootSteps';
+﻿import { rebootSteps } from '../constants/rebootSteps';
 import { IssueType, Step } from './types';
 
 export interface StepGroup {
@@ -15,23 +15,23 @@ export interface IssuePrompts {
   abort: string;
   /** Instruction shown when all steps are done, transitioning to resolution. */
   stepsComplete: string;
-  /** Instruction for the resolution phase. Optional — falls back to a generic close. */
+  /** Instruction for the resolution phase. Optional - falls back to a generic close. */
   resolution?: string;
 }
 
 export interface IssueQualifying {
   /**
-   * One-line description used in the classifier prompt — when should this issue type be chosen?
+   * One-line description used in the classifier prompt - when should this issue type be chosen?
    */
   classifierDescription: string;
   /**
    * When this issue type is NOT the right path. Used in the qualifying prompt to describe
-   * the exit condition. Optional — omitting falls back to a generic exit description.
+   * the exit condition. Optional - omitting falls back to a generic exit description.
    */
   exitCriteria?: string;
   /**
    * Pool of diagnostic questions relevant to this issue type.
-   * The LLM picks the most relevant ones based on the conversation so far —
+   * The LLM picks the most relevant ones based on the conversation so far -
    * these are suggestions, not a fixed list to recite.
    */
   suggestedQuestions: string[];
@@ -85,7 +85,7 @@ function buildStepGroups(steps: Step[]): StepGroup[] {
  *   2. Create a steps constant (see rebootSteps.ts for the shape)
  *   3. Add an entry here with qualifying, steps, and prompts
  *
- * The rest of the flow — routing, state machine, classifiers, prompt builder — picks it up automatically.
+ * The rest of the flow - routing, state machine, classifiers, prompt builder - picks it up automatically.
  */
 export const issueRegistry: Record<IssueType, IssueConfig> = {
   reboot: {

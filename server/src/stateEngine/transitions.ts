@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+﻿import OpenAI from 'openai';
 import { ConversationState, IssueType, Message } from './types';
 import { issueRegistry } from './stepGroups';
 
@@ -12,7 +12,7 @@ export async function getNextState(
       const decision = await classifyQualifying(messages, openai);
       if (decision === 'exit') return { phase: 'closed', issueType: null, stepIndex: 0 };
       if (decision !== 'continue' && decision !== 'unclear') {
-        // decision is an IssueType — start the guided flow for that issue
+        // decision is an IssueType - start the guided flow for that issue
         return { phase: 'guided-steps', issueType: decision, stepIndex: 0 };
       }
       return current; // stay in qualifying until enough info
