@@ -34,6 +34,25 @@
   color: #111;
 }
 
+.chat-bubble--assistant p {
+  margin: 0 0 8px 0;
+}
+
+.chat-bubble--assistant p:last-child {
+  margin-bottom: 0;
+}
+
+.chat-bubble--assistant ul,
+.chat-bubble--assistant ol {
+  margin: 4px 0 8px 0;
+  padding-left: 20px;
+}
+
+.chat-bubble--assistant h3 {
+  margin: 8px 0 4px 0;
+  font-size: 15px;
+}
+
 .chat-status {
   color: #9ca3af;
   font-size: 14px;

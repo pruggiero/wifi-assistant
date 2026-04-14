@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { useChat } from '../hooks/useChat';
 import './Chat.css';
 
@@ -21,7 +22,10 @@ export function Chat() {
         {messages.map((msg, i) => (
           <div key={i} className={`chat-message chat-message--${msg.role}`}>
             <span className={`chat-bubble chat-bubble--${msg.role}`}>
-              {msg.content}
+              {msg.role === 'assistant'
+                ? <ReactMarkdown>{msg.content}</ReactMarkdown>
+                : msg.content
+              }
             </span>
           </div>
         ))}
