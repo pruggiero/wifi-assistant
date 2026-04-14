@@ -123,3 +123,43 @@ describe('step progression (LLM-as-judge)', () => {
   });
 
 });
+
+// Guards the bug where qualifying conversation containing "unplugged" caused flow-start to skip step 1.
+// The route fix (stripping history for flow-start) is the primary safeguard;
+// these evals verify the prompt behaviour holds even if history is present.
+describe('flow-start step 1 integrity (LLM-as-judge)', () => {
+  async function getFlowStartResponse(
+    messages: { role: 'user' | 'assistant'; content: string }[]
+  ): Promise<string> {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const instruction = buildInstruction({ phase: 'flow-start', issueType: 'reboot', stepIndex: 0 });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        ...messages,
+      ],
+    });
+    return completion.choices[0].message.content ?? '';
+  }
+
+  // User mentioned unplugging during qualifying - LLM must still present step 1
+  itLive('flow-start: presents unplug step even when user mentioned unplugging in qualifying', async () => {
+    const response = await getFlowStartResponse([
+      { role: 'assistant', content: "I can help with that. Is the issue affecting all your devices?" },
+      { role: 'user', content: "yes both my laptop and phone lost WiFi. I already tried unplugging the router." },
+    ]);
+    expect(await judge('Does this response ask the user to unplug the power cable from both the router and modem?', response)).toBe('yes');
+    expect(await judge('Does this response ask the user to wait 10 seconds or plug anything back in?', response)).toBe('no');
+  }, 30000);
+
+  // No prior context - clean start
+  itLive('flow-start: presents unplug step with no prior context', async () => {
+    const response = await getFlowStartResponse([
+      { role: 'user', content: "ok let's do it" },
+    ]);
+    expect(await judge('Does this response ask the user to unplug the power cable from both the router and modem?', response)).toBe('yes');
+    expect(await judge('Does this response ask the user to wait 10 seconds or plug anything back in?', response)).toBe('no');
+  }, 30000);
+});

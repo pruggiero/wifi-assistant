@@ -13,7 +13,7 @@ export function buildInstruction(state: InstructionState): string {
       const firstStep = config?.steps[0]?.confirmStep;
       const startPrompt = config?.prompts.start ?? `The qualifying questions are complete. Tell the user you are going to walk them through the next steps.`;
       if (firstStep) {
-        return `${startPrompt}\n\nImmediately present this first step verbatim: "${firstStep.message}". Ask the user to confirm when they have completed it.`;
+        return `${startPrompt}\n\nPresent this first step verbatim: "${firstStep.message}". Ask the user to confirm when they have completed it.`;
       }
       return startPrompt;
     }
@@ -51,17 +51,11 @@ export function buildInstruction(state: InstructionState): string {
       if (!group) return config?.prompts.stepsComplete ?? 'The guided steps are complete. Ask the user if their issue is resolved.';
 
       if (group.presentSteps.length > 1) {
-        const autoSteps = group.presentSteps.slice(0, -1);
-        const last = group.confirmStep;
-        return `The user has completed the previous step. Present ONLY the following steps in order. Do not skip, reorder, or substitute any step based on conversation history.
-
-${autoSteps.map(s => `"${s.message}" - relay this verbatim and immediately continue.`).join('\n')}
-"${last.message}" - relay this verbatim and ask the user to confirm when they have completed this step before continuing.`;
+        const stepLines = group.presentSteps.map((s, i) => `${i + 1}. ${s.message}`).join('\n');
+        return `The user has completed the previous step. Present ONLY these steps verbatim as a numbered list:\n${stepLines}\nAsk the user to confirm when they have completed all of these steps before continuing.`;
       }
 
-      return `The user has completed the previous step. Present ONLY this step. Do not skip or substitute it based on conversation history.
-"${group.confirmStep.message}"
-Relay this verbatim and ask the user to confirm when they've completed it before continuing.`;
+      return `The user has completed the previous step. Present ONLY this step verbatim: "${group.confirmStep.message}". Ask the user to confirm when they have completed it before continuing.`;
     }
 
     case 'resolution': {

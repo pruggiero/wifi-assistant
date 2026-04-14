@@ -96,8 +96,13 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
     prompts: {
       start: `The qualifying questions are complete and a router reboot is the right next step. Briefly tell the user you are going to walk them through a reboot, framing it as the first step in resolving their issue, not a generic "next step".`,
       questionContext: 'a router reboot',
-      abort: `The user has indicated their issue is resolved or they no longer need to continue the reboot. Acknowledge this warmly and close the conversation. Do NOT continue the reboot steps. Do NOT ask any follow-up questions.`,
-      stepsComplete: 'The reboot steps are complete. Ask the user if their issue is resolved.',
+      abort: `The user has indicated they want to stop and no longer need to continue the reboot. Acknowledge this warmly and close the conversation. Do NOT continue the reboot steps. Do NOT ask any follow-up questions.`,
+      stepsComplete: `The reboot steps are complete. Look at the user's last message to determine the outcome:
+- If they have already indicated the issue is fully resolved: congratulate them warmly and say goodbye.
+- If they have already indicated the issue is only partially resolved (e.g. one device works but not another): acknowledge the partial progress, suggest they contact their ISP or a technician for the remaining issue, and say goodbye. Do NOT offer further troubleshooting.
+- If they have already indicated the issue is not resolved: apologize sincerely, suggest they contact their ISP or a technician, and say goodbye.
+- If the outcome is not yet clear: ask them if their issue is resolved.
+Do NOT offer troubleshooting steps. Do NOT ask any follow-up questions beyond asking about the outcome.`,
       resolution: `This is your final message. The router reboot is complete.
 - If the user says their issue is fully resolved: congratulate them warmly and say goodbye.
 - If the issue is not resolved: apologize sincerely, suggest they contact their ISP or a technician, and say goodbye.

@@ -155,9 +155,9 @@ async function classifyStepResponse(
 Their response was: "${lastUserMessage}"
 
 Classify their response:
-- confirm: they completed the step, are ready to continue, or said something like "done", "ok", "ready"
+- confirm: they completed the step or are ready to continue, including saying the step worked or resolved the issue
 - question: they are asking for clarification, made a mistake, or need help with the current step
-- abort: their issue is resolved or they no longer need the flow (e.g. "it's working now", "nevermind", "never mind")
+- abort: they explicitly want to stop the flow (e.g. "nevermind", "never mind", "stop", "cancel", "I want to quit")
 
 Reply with exactly one word: confirm, question, or abort`,
       },

@@ -63,6 +63,7 @@ router.post('/', async (req: Request, res: Response) => {
   // For qualifying, classify first so the response instruction matches the transition
   let instruction: string;
   let nextState: ConversationState;
+  let isFlowStart = false; // true when qualifying just resolved - strip history so LLM can't be confused by qualifying conversation
 
   if (state.phase === 'qualifying') {
     const userTurns = sanitizedMessages.filter(m => m.role === 'user').length;
@@ -89,6 +90,7 @@ router.post('/', async (req: Request, res: Response) => {
         // decision is an IssueType - start the guided flow for that issue
         instruction = buildInstruction({ phase: 'flow-start', issueType: decision, stepIndex: 0 });
         nextState = { phase: 'guided-steps', issueType: decision, stepIndex: 0 };
+        isFlowStart = true;
       } else {
         instruction = buildInstruction(state);
         nextState = state;
@@ -127,7 +129,15 @@ router.post('/', async (req: Request, res: Response) => {
           nextState = nextStepIndex >= groups.length
             ? { phase: 'resolution', issueType: state.issueType, stepIndex: 0 }
             : { phase: 'guided-steps', issueType: state.issueType, stepIndex: nextStepIndex };
-          instruction = buildInstruction(nextState);
+          if (nextState.phase === 'resolution') {
+            // Ask if resolved - user needs a turn to answer before we send the close instruction
+            const stepsComplete = state.issueType
+              ? issueRegistry[state.issueType].prompts.stepsComplete
+              : undefined;
+            instruction = stepsComplete ?? 'The guided steps are complete. Ask the user if their issue is resolved.';
+          } else {
+            instruction = buildInstruction(nextState);
+          }
         }
       } catch (error) {
         console.error('[chat] step classifier error:', error);
@@ -152,7 +162,7 @@ router.post('/', async (req: Request, res: Response) => {
       temperature: 0.3,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
-        ...sanitizedMessages,
+        ...(isFlowStart ? [] : sanitizedMessages),
       ],
     });
 
