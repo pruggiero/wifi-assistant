@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useChat } from '../hooks/useChat';
 import './Chat.css';
@@ -6,11 +6,13 @@ import './Chat.css';
 export function Chat() {
   const { messages, isLoading, error, sendMessage, conversationState } = useChat();
   const [input, setInput] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
   const isClosed = conversationState.phase === 'closed';
 
   const handleSend = () => {
     void sendMessage(input);
     setInput('');
+    inputRef.current?.focus();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -37,6 +39,7 @@ export function Chat() {
 
       <div className="chat-input-row">
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
