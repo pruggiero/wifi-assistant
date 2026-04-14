@@ -135,14 +135,12 @@ dns: {
 },
 ```
 
----
+A few things to keep in mind:
 
-### Prompting notes
+- **`classifierDescription`** — one specific "when to choose this" sentence. The model picks between labels, so ambiguity between two similar descriptions causes misroutes. If your new issue is conceptually close to an existing one, sharpen both descriptions until the distinction is clear.
+- **`exitCriteria`** — write as a fragment (*"only one device is affected..."*); it's joined with other issues' criteria and prefixed automatically. Only needed when there's a meaningful "wrong path" case for this issue type.
+- **`suggestedQuestions`** — a pool, not a script. The LLM picks the 1–2 most relevant per turn. Cover different angles so it has something useful to ask at each stage of the diagnostic.
+- **`start`** — be explicit about asking the user to confirm they're ready before any steps begin. Without this the model often skips straight to step 1.
+- **`resolution`** — include "Do NOT ask follow-up questions" explicitly, or the model defaults to "Is there anything else I can help you with?" and the conversation doesn't end.
 
-- **`classifierDescription`** is inserted verbatim into the classifier system prompt alongside all other issue types. Make it a single, specific "when to choose this" sentence — the model picks between labels and ambiguity causes misroutes.
-- **`exitCriteria`** feeds the qualifying prompt's exit condition. Write it as a fragment: *"only one device is affected, a specific website is down..."* — it gets joined with other issues' criteria and prefixed with "guided troubleshooting won't help:".
-- **`suggestedQuestions`** are a pool, not a script. The qualifying LLM picks the 1–2 most relevant ones per turn. Write them as complete natural-language questions; include enough variety to cover different points in the diagnostic.
-- **`start`** runs once when qualifying resolves to this issue. Be explicit: tell the LLM to confirm the user is ready before presenting any steps. Without this it often skips straight to step 1.
-- **`resolution`** is the final message. Include explicit "do NOT ask follow-up questions" language — without it the model defaults to "Is there anything else I can help with?" and the conversation never ends.
-- **Classifier confidence threshold** (`CONFIDENCE_THRESHOLD = 0.4`) applies to all classifiers. If your new issue type is conceptually close to an existing one, the model may stay in `'unclear'` longer than expected. Sharpen the `classifierDescription` values to make the labels more distinct.
 
