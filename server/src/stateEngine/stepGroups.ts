@@ -7,33 +7,21 @@ export interface StepGroup {
 }
 
 export interface IssuePrompts {
-  /** Instruction when starting the guided flow (after qualifying). */
   start: string;
-  /** Short description of the flow used mid-step, e.g. "a router reboot". */
+  /** Short phrase inserted into: "guided through {questionContext}". E.g. "a router reboot". */
   questionContext: string;
-  /** Instruction when the user aborts mid-flow. */
   abort: string;
-  /** Instruction shown when all steps are done, transitioning to resolution. */
   stepsComplete: string;
-  /** Instruction for the resolution phase. Optional - falls back to a generic close. */
+  /** Falls back to a generic close if omitted. */
   resolution?: string;
 }
 
 export interface IssueQualifying {
-  /**
-   * One-line description used in the classifier prompt - when should this issue type be chosen?
-   */
+  /** Used verbatim in the classifier prompt. One sentence: when should this type be chosen? */
   classifierDescription: string;
-  /**
-   * When this issue type is NOT the right path. Used in the qualifying prompt to describe
-   * the exit condition. Optional - omitting falls back to a generic exit description.
-   */
+  /** Written as a fragment; joined with other issues' criteria in the qualifying prompt. */
   exitCriteria?: string;
-  /**
-   * Pool of diagnostic questions relevant to this issue type.
-   * The LLM picks the most relevant ones based on the conversation so far -
-   * these are suggestions, not a fixed list to recite.
-   */
+  /** Suggestion pool - the LLM picks the most relevant 1-2 per turn, not the full list. */
   suggestedQuestions: string[];
 }
 
@@ -77,16 +65,8 @@ function buildStepGroups(steps: Step[]): StepGroup[] {
   return groups;
 }
 
-/**
- * Registry of issue configs keyed by issue type.
- *
- * To add a new issue type:
- *   1. Add the type name to the IssueType union in types.ts
- *   2. Create a steps constant (see rebootSteps.ts for the shape)
- *   3. Add an entry here with qualifying, steps, and prompts
- *
- * The rest of the flow - routing, state machine, classifiers, prompt builder - picks it up automatically.
- */
+// To add a new issue type: extend IssueType in types.ts, create a steps file, add an entry here.
+// Routing, classifiers, and prompt builder all read from this registry.
 export const issueRegistry: Record<IssueType, IssueConfig> = {
   reboot: {
     qualifying: {

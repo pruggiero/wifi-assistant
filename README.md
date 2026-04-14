@@ -1,6 +1,6 @@
 ﻿# WiFi Assistant
 
-An AI-powered chatbot that diagnoses WiFi issues and walks users through guided troubleshooting flows. Currently supports router reboot (Linksys EA6350).
+A chat interface for diagnosing WiFi connectivity issues and walking users through structured troubleshooting steps. Currently covers router reboot (Linksys EA6350).
 
 ## Setup
 
@@ -24,7 +24,7 @@ npm run dev
 npm test
 ```
 
-Eval tests require an API key and run separately so they don't block CI:
+Eval tests require an API key and run separately:
 
 ```bash
 cd server && npm run test:eval
@@ -41,56 +41,58 @@ cd server && npm run test:eval
 
 ## Architecture
 
-State lives entirely on the server. The client echoes `conversationState` back on each request and renders what it receives.
+State is server-owned. The client sends `conversationState` back with each request and renders what it receives.
 
-**Conversation phases:** `qualifying` -> `guided-steps` -> `resolution` -> `closed`
+**Phases:** `qualifying` -> `guided-steps` -> `resolution` -> `closed`
 
-**Issue registry:** Issue types (currently `reboot`) are defined in `issueRegistry` in `stepGroups.ts`, each owning its qualifying config, step groups, and prompt strings. Adding a new issue type requires changes in three places; the classifier, qualifying prompt, step routing, and resolution look-up all update automatically. See [Adding an Issue Type](#adding-an-issue-type) below.
+**Issue registry:** Issue types are defined in `issueRegistry` in `stepGroups.ts`. Each entry owns its qualifying config, step groups, and prompts. The classifier, qualifying prompt, routing, and resolution look-up all read from the registry. See [Adding an Issue Type](#adding-an-issue-type).
 
-**Pre-classification:** A cheap classifier call (`max_tokens: 10`) runs before the response is generated, so the LLM gets an instruction matching what is about to happen rather than what just happened. Without this, the response and the state transition can disagree.
+**Pre-classification:** A lightweight classifier call (`max_tokens: 10`) runs before the response is generated, so the LLM instruction matches the transition that is about to happen. Without this, the response and state can disagree.
 
-**Step grouping:** The 6 reboot steps are bundled into 4 groups. Steps that don't need user confirmation are folded into the next waiting step, so the user isn't prompted after every individual action.
+**Step grouping:** Steps are bundled into groups. Non-waiting steps are folded into the next confirmation step, so the user is not prompted after every individual action. The reboot flow has 6 steps across 4 groups.
 
 ---
 
 ## Design Choices
 
-- **Separate classifier calls:** keeps classifiers independently testable. Swapping the model or prompt for one classifier doesn't affect response generation.
-- **Server-owned state:** the client can't manipulate or replay state out of order. State from the client is validated against the phase enum, registry membership, and step bounds before use; invalid state falls back to the start of the conversation.
-- **Input sanitization:** message `role` is validated against the allowed set, content is capped at 500 characters, and history is limited to 25 messages. This blocks prompt injection via crafted role values and keeps token usage bounded.
-- **Shorter classifier context window:** classifiers receive only the last 8 messages. They only need recent intent, so sending the full history wastes tokens on every request.
-- **`gpt-4o-mini` throughout:** capable for constrained classifiers and guided responses, and noticeably cheaper than `gpt-4o` for this workload.
-- **`temperature: 0` on classifiers, `0.3` on responses:** classifiers need to be deterministic so eval results are meaningful. A low non-zero temperature on responses keeps phrasing consistent while avoiding robotic repetition.
-- **Logprob confidence check:** both classifiers use `logprobs: true` and treat `Math.exp(logprob) < 0.4` as low confidence. With 3 classes, random chance is 33%, so anything below 40% signals the model can barely distinguish labels. The conversation closes with a rephrase prompt rather than acting on an unreliable classification.
+- **Separate classifier calls:** classifiers are independently testable and swappable without affecting response generation.
+- **Server-owned state:** state from the client is validated against the phase enum, registry membership, and step bounds before use. Invalid state resets to the start.
+- **Input sanitization:** message `role` is validated against an allowlist, content is capped at 500 characters, and history is limited to 25 messages.
+- **Shorter classifier context window:** classifiers receive only the last 8 messages. They need recent intent, not the full history.
+- **`gpt-4o-mini` throughout:** handles constrained classification and guided responses well at a fraction of the cost of `gpt-4o`.
+- **`temperature: 0` on classifiers, `0.3` on responses:** deterministic classifiers make eval results repeatable. A low non-zero temperature on responses avoids robotic repetition without sacrificing consistency.
+- **Logprob confidence check:** both classifiers reject responses where `Math.exp(logprob) < 0.4`. With 3 classes, random chance is 33%, so anything below 40% is unreliable. The conversation closes with a rephrase prompt rather than acting on a weak classification.
 - **Static response for `closed` phase:** no LLM call once the conversation is done.
 
 ---
 
-## Challenges and Trade-offs
+## Trade-offs
 
-- **Response/state mismatch:** an early version classified intent after generating the response. If they disagreed, the UI said one thing while the state was somewhere else. Pre-classifying first fixed it.
-- **Infinite question loop:** without `abort`, a user who never confirms a step would stay in the `question` branch indefinitely. `abort` exits cleanly. Token cost is further controlled by capping history (25 messages) and using a shorter classifier window (8 messages).
-- **Backward navigation:** not implemented. The `question` classifier covers the common case: if a user is confused or missed a step, it stays on the current step and re-explains. A physical reboot sequence is also a case where going back adds little value.
-- **Linear step flow:** steps advance sequentially. If a future issue type needs conditional branching (e.g. "do you have a combo unit or separate modem and router?"), the step data model would need `branchOutcomes` and a `nextOnOutcome` map on `StepGroup`, with the step classifier returning the chosen branch label rather than a plain `confirm`. Not added until a branching flow is actually needed.
-- **State is not persisted:** a server restart resets everything. A production version would need a session store or a database row.
-- **No streaming:** responses are returned as a single JSON payload. Streaming would improve perceived responsiveness, but `nextState` is only known after the full completion arrives, so a streaming version would need to deliver content chunks and `nextState` as separate SSE events.
-- **Full history sent to response LLM:** classifiers use a shorter window (8 messages), but the response LLM receives the full history (up to 25). In `qualifying` that context matters. In `guided-steps` and `resolution`, the instruction already encodes what to say next, so a phase-aware window could reduce token cost on longer conversations.
+- **Response/state mismatch:** an early version classified after generating the response. Pre-classifying first fixed the case where they disagreed.
+- **Qualifying loop:** without a turn limit, qualifying could run indefinitely. `MAX_QUALIFYING_TURNS = 5` closes gracefully if no issue is identified in time.
+- **Backward navigation:** not implemented. The `question` classifier handles the common case - if a user is confused or missed a step, the flow stays on the current step and re-explains. For a physical reboot sequence, going back adds little value.
+- **Linear step flow:** steps advance sequentially. If a future flow needs conditional branching (e.g. "combo unit or separate modem and router?"), `StepGroup` would need `branchOutcomes` and a `nextOnOutcome` map, with the step classifier returning a branch label rather than plain `confirm`.
+- **No session persistence:** a server restart resets all conversations. Persisting state would need a session store keyed to the client.
+- **No streaming:** responses are a single JSON payload. `nextState` is only known after the full completion, so streaming would require content chunks and `nextState` as separate SSE events.
+- **Full history to response LLM:** classifiers use 8 messages, but the response LLM gets up to 25. A phase-aware window could reduce token cost once the flow moves past qualifying.
 
 ---
 
 ## Findings
 
-- **Single-device routing bug:** the qualifying classifier was routing "only my laptop has no WiFi" to `reboot`. The first fix exited when only one device was affected, but that made "just my laptop" (ambiguous) behave the same as "just my laptop, phone and tablet are fine" (explicit). The final rule requires the user to explicitly name other working devices before choosing exit. Two eval cases cover both sides of this.
-- **Mid-step corrections work without special handling:** "oh wait I made a mistake, let me try again" gets classified as `question`, the current step gets re-prompted, and state doesn't advance.
-- **Resolution phase kept asking follow-up questions:** the LLM would default to "Is there anything else I can help you with?" without explicit instruction to stop. Fixed by adding "Do NOT ask any follow-up questions. This is your final message." to the resolution prompt.
+- **Single-device routing:** the classifier was routing "only my laptop has no WiFi" to `reboot`. Requiring the user to explicitly name other working devices before choosing `exit` fixed it without breaking the ambiguous case. Two eval cases cover both sides.
+- **Mid-step corrections:** "oh wait I made a mistake, let me try again" classifies as `question`, the current step re-prompts, and state does not advance. No special handling needed.
+- **Resolution follow-up questions:** without explicit instruction the model defaults to "Is there anything else I can help you with?" Adding "This is your final message. Do NOT ask follow-up questions." to the resolution prompt stopped it.
 
 ---
 
 ## Eval Tests
 
-Modelled after LangSmith: fixed inputs, expected labels, pass/fail, plus an LLM-as-judge step for response quality. LangSmith adds a UI with trace logging and dataset versioning; here it's Vitest fixtures hitting the live API directly.
+Fixed inputs, expected labels, pass/fail, plus an LLM-as-judge step for response quality. Structurally similar to LangSmith, without the UI and dataset versioning. Evals hit the live API and are excluded from `npm test`.
 
-Evals are excluded from `npm test` and run separately via `npm run test:eval`.
+```bash
+cd server && npm run test:eval
+```
 
 ---
 
@@ -112,7 +114,7 @@ export const newIssueSteps: Step[] = [
   ...
 ];
 ```
-Steps with `waitForUser: false` are shown automatically and bundled with the next confirmation step so the user isn't prompted after every action.
+Steps with `waitForUser: false` are shown automatically and bundled with the next confirmation step so the user is not prompted after every action.
 
 **3. `server/src/stateEngine/stepGroups.ts`** - add an entry to `issueRegistry`:
 ```ts
@@ -142,12 +144,9 @@ newIssue: {
 A few things to keep in mind when writing the prompts for a new entry:
 
 - **`classifierDescription`** - one specific "when to choose this" sentence. The model picks between labels, so ambiguity between two similar descriptions causes misroutes. If your new issue is conceptually close to an existing one, sharpen both descriptions until the distinction is clear.
-- **`exitCriteria`** - write as a fragment (*"only one device is affected..."*); it's joined with other issues' criteria and prefixed automatically. Only needed when there's a meaningful "wrong path" case for this issue type.
-- **`suggestedQuestions`** - a pool, not a script. The LLM picks the 1–2 most relevant per turn. Cover different angles so it has something useful to ask at each stage of the diagnostic.
-- **`start`** - this runs once when qualifying resolves. Be explicit that the LLM should confirm the user is ready before presenting any steps - without it the model often skips straight to step 1.
+- **`exitCriteria`** - write as a fragment (*"only one device is affected..."*); it is joined with other issues' criteria and prefixed automatically. Only needed when there is a meaningful "wrong path" case for this issue type.
+- **`suggestedQuestions`** - a pool, not a script. The LLM picks the 1-2 most relevant per turn. Cover different angles so it has something useful to ask at each stage of the diagnostic.
+- **`start`** - runs once when qualifying resolves. Be explicit that the LLM should confirm the user is ready before presenting any steps - without it the model often skips straight to step 1.
 - **`questionContext`** - short phrase used mid-step when the user asks a clarifying question: *"the user has asked a question while being guided through {questionContext}"*. Keep it natural, e.g. `'a router reboot'` or `'a factory reset'`.
-- **`resolution`** - include "This is your final message" and "Do NOT ask follow-up questions" explicitly. Without both, the model often closes with "Is there anything else I can help you with?" and the conversation doesn't end. Cover the resolved and unresolved cases separately.
-
-
-
+- **`resolution`** - include "This is your final message" and "Do NOT ask follow-up questions" explicitly. Without both, the model tends to close with "Is there anything else I can help you with?" Cover the resolved and unresolved cases separately.
 

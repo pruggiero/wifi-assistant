@@ -12,7 +12,6 @@ export async function getNextState(
       const decision = await classifyQualifying(messages, openai);
       if (decision === 'exit') return { phase: 'closed', issueType: null, stepIndex: 0 };
       if (decision !== 'continue' && decision !== 'unclear') {
-        // decision is an IssueType - start the guided flow for that issue
         return { phase: 'guided-steps', issueType: decision, stepIndex: 0 };
       }
       return current; // stay in qualifying until enough info
@@ -29,7 +28,6 @@ export async function getNextState(
     }
 
     case 'resolution':
-      // Both resolved and unresolved end the conversation; the LLM generates the appropriate close
       return { phase: 'closed', issueType: null, stepIndex: 0 };
 
     case 'closed':
@@ -43,7 +41,6 @@ async function classifyQualifying(
   messages: Message[],
   openai: OpenAI
 ): Promise<IssueType | 'exit' | 'continue' | 'unclear'> {
-  // Build issue descriptions from the registry so this prompt stays in sync automatically
   const issueDescriptions = (Object.entries(issueRegistry) as [IssueType, (typeof issueRegistry)[IssueType]][])
     .map(([key, config]) => `- ${key}: ${config.qualifying.classifierDescription}`)
     .join('\n');

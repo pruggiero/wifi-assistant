@@ -28,8 +28,6 @@ export function buildInstruction(state: InstructionState): string {
     }
 
     case 'qualifying': {
-      // Give the LLM the issue types and their signals, plus a pool of suggested questions.
-      // It should ask 1-2 of the most relevant ones based on what the user has said - not recite the full list.
       const issueContext = Object.values(issueRegistry)
         .map(c => `- ${c.qualifying.classifierDescription}\n  Useful questions: ${c.qualifying.suggestedQuestions.join(' | ')}`)
         .join('\n');
