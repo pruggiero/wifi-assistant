@@ -24,11 +24,11 @@ export interface IssueQualifying {
    */
   classifierDescription: string;
   /**
-   * Diagnostic questions to ask the user during the qualifying phase.
-   * Questions from all issue types are merged and shown together so the LLM can gather
-   * enough information to distinguish between them.
+   * Pool of diagnostic questions relevant to this issue type.
+   * The LLM picks the most relevant ones to ask based on the conversation so far —
+   * these are suggestions, not a fixed list to recite.
    */
-  questions: string[];
+  suggestedQuestions: string[];
 }
 
 export interface IssueConfig {
@@ -85,7 +85,7 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
   reboot: {
     qualifying: {
       classifierDescription: `The user's issue affects ALL devices on the network and a router reboot is appropriate`,
-      questions: [
+      suggestedQuestions: [
         'Is the issue affecting all devices, or just one?',
         'Have you made any recent changes - like moving the router, adding a new device, or changing any settings?',
         'Are any lights on your router showing red, or are any lights off that are usually on?',
