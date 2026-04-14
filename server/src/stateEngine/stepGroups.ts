@@ -12,20 +12,21 @@ export interface IssuePrompts {
   questionContext: string;
   abort: string;
   stepsComplete: string;
-  /** Falls back to a generic close if omitted. */
+  /** If omitted, falls back to a generic close message. */
   resolution?: string;
 }
 
 export interface IssueQualifying {
-  /** Used verbatim in the classifier prompt. One sentence: when should this type be chosen? */
+  /** One sentence used in the classifier prompt: when should this issue type be chosen? */
   classifierDescription: string;
-  /** Additional conditions sufficient to route to this issue type regardless of device count.
-   *  Each entry is a short fragment, e.g. "router shows abnormal lights (red, or lights off that are usually on)".
+  /** Extra conditions that should route to this issue type regardless of device count.
+   *  Each entry is a short fragment, e.g. "router shows abnormal lights".
    *  Rendered as "Also choose <issueType> when: <signal>" in the classifier prompt. */
   routingSignals?: string[];
-  /** Written as a fragment; joined with other issues' criteria in the qualifying prompt. */
-  exitCriteria?: string;
-  /** Suggestion pool - the LLM picks the most relevant 1-2 per turn, not the full list. */
+  /** Conditions under which guided troubleshooting should be skipped. Each is a standalone condition. */
+  exitCriteria?: string[];
+
+  /** Questions the LLM can draw from. It picks the 1-2 most relevant per turn, not all of them. */
   suggestedQuestions: string[];
 }
 
@@ -69,17 +70,22 @@ function buildStepGroups(steps: Step[]): StepGroup[] {
   return groups;
 }
 
-// To add a new issue type: extend IssueType in types.ts, create a steps file, add an entry here.
-// Routing, classifiers, and prompt builder all read from this registry.
+// To add a new issue type: extend IssueType in types.ts, add a steps file, then add an entry below.
+// Routing, classifiers, and prompt builder all pull from this registry.
 export const issueRegistry: Record<IssueType, IssueConfig> = {
   reboot: {
     qualifying: {
-      classifierDescription: `The user's issue affects all devices on the network and a router reboot is appropriate`,
+      classifierDescription: `WiFi is down or slow across all (or most) devices on the network, suggesting a router or modem issue`,
       routingSignals: [
-        'router shows abnormal lights (red, or lights off that are usually on) - choose reboot even if only one device is affected, unless the user has confirmed other devices are working fine',
-        'user made recent network changes (moved the router, added a new device, changed settings) - choose reboot even if only one device is affected, unless the user has confirmed other devices are working fine',
+        'router shows abnormal lights (red, or lights off that are usually on) - choose reboot even if only one device is affected',
+        'user made recent network changes (moved the router, added a new device, changed settings) - choose reboot even if only one device is affected',
       ],
-      exitCriteria: 'only one device is affected, a specific website is down, an ISP outage is suspected, or there is physical hardware damage',
+      exitCriteria: [
+        'the user has explicitly confirmed that other devices (e.g. phone, tablet, another laptop) are working fine and only one device is affected',
+        'a specific website is down but general internet access is fine',
+        'an ISP outage is suspected',
+        'physical hardware damage is present',
+      ],
       suggestedQuestions: [
         'Is the issue affecting all devices, or just one?',
         'Have you made any recent changes - like moving the router, adding a new device, or changing any settings?',

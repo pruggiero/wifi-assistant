@@ -41,6 +41,51 @@ async function classifyQualifying(
   messages: Message[],
   openai: OpenAI
 ): Promise<IssueType | 'exit' | 'continue' | 'unclear'> {
+  // Check exit first. If it applies, skip issue-type routing entirely.
+  const shouldExit = await classifyExit(messages, openai);
+  if (shouldExit) return 'exit';
+  return classifyIssueType(messages, openai);
+}
+
+// Should we skip guided troubleshooting for this user?
+async function classifyExit(messages: Message[], openai: OpenAI): Promise<boolean> {
+  const exitConditions = Object.values(issueRegistry).flatMap(c => c.qualifying.exitCriteria ?? []);
+  if (!exitConditions.length) return false;
+
+  const conditionList = exitConditions.map(c => `- ${c}`).join('\n');
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    temperature: 0,
+    messages: [
+      {
+        role: 'system',
+        content: 'You are a classifier for a WiFi support system. Reply with exactly one word: yes or no.',
+      },
+      ...messages,
+      {
+        role: 'user',
+        content: `Should guided WiFi troubleshooting be skipped for this user?
+
+Reply YES only if any of the following are clearly true:
+${conditionList}
+
+Reply NO if none of the above clearly apply, or if the situation is ambiguous.
+
+Reply with exactly one word: yes or no`,
+      },
+    ],
+    max_tokens: 5,
+  });
+
+  const text = completion.choices[0].message.content?.toLowerCase().trim() ?? 'no';
+  return text.startsWith('yes');
+}
+
+// Which issue type applies, or do we need more info?
+async function classifyIssueType(
+  messages: Message[],
+  openai: OpenAI
+): Promise<IssueType | 'continue' | 'unclear'> {
   const issueDescriptions = (Object.entries(issueRegistry) as [IssueType, (typeof issueRegistry)[IssueType]][])
     .map(([key, config]) => {
       const signals = config.qualifying.routingSignals;
@@ -51,7 +96,7 @@ async function classifyQualifying(
     })
     .join('\n');
   const issueKeys = Object.keys(issueRegistry) as IssueType[];
-  const labelList = [...issueKeys, 'exit', 'continue'].join(', ');
+  const labelList = [...issueKeys, 'continue'].join(', ');
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
@@ -66,12 +111,10 @@ async function classifyQualifying(
       ...messages,
       {
         role: 'user',
-        content: `Based on the conversation so far, what should happen next?
-${issueDescriptions}
-- exit: Guided troubleshooting won't help. Choose exit when the user has explicitly named other devices (e.g. phone, tablet, another laptop) that are working fine and only one device is affected. Also exit for: specific website is down, ISP outage suspected, physical hardware damage.
-- continue: Not enough information yet. Use this when: it is ambiguous whether other devices are affected, the user says "just my laptop" without mentioning whether other devices exist or work, or the user only has one device with no other routing signals present. When in doubt, choose continue.
+        content: `Based on the conversation so far, which guided troubleshooting flow should the user be routed to?
 
-IMPORTANT: A user saying only "just my laptop" or "only my laptop" without mentioning other working devices is NOT enough to choose exit. Choose continue and ask if other devices are affected.
+${issueDescriptions}
+- continue: Not enough information yet to identify which issue type applies. Choose this when the scope of the issue (e.g. how many devices are affected) or the likely cause is still unclear. When in doubt, choose continue.
 
 Reply with exactly one word: ${labelList}`,
       },
@@ -84,9 +127,7 @@ Reply with exactly one word: ${labelList}`,
 
   const text = completion.choices[0].message.content?.toLowerCase().trim() ?? 'continue';
   const matched = issueKeys.find(k => text.startsWith(k));
-  if (matched) return matched;
-  if (text.startsWith('exit')) return 'exit';
-  return 'continue';
+  return matched ?? 'continue';
 }
 
 async function classifyStepResponse(
