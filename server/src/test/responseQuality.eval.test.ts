@@ -79,4 +79,15 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response ask the user to unplug the power cable from the router or modem?', response)).toBe('yes');
     expect(await judge('Does this response ask the user to plug anything back in?', response)).toBe('no');
   });
+
+  // Guards the bug where partial success caused the LLM to improvise further troubleshooting
+  itLive('resolution phase closes conversation on partial success without further troubleshooting', async () => {
+    const response = await getResponse(
+      { phase: 'resolution', issueType: 'reboot', stepIndex: 0 },
+      'The internet is working on my laptop now but my phone still cannot connect.'
+    );
+    expect(await judge('Does this response suggest contacting an ISP or technician for the remaining issue?', response)).toBe('yes');
+    expect(await judge('Does this response offer further troubleshooting steps such as toggling WiFi or forgetting the network?', response)).toBe('no');
+    expect(await judge('Does this response ask a follow-up question?', response)).toBe('no');
+  });
 });

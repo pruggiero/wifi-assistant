@@ -85,8 +85,9 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
       abort: `The user has indicated their issue is resolved or they no longer need to continue the reboot. Acknowledge this warmly and close the conversation. Do NOT continue the reboot steps. Do NOT ask any follow-up questions.`,
       stepsComplete: 'The reboot steps are complete. Ask the user if their issue is resolved.',
       resolution: `This is your final message. The router reboot is complete.
-- If the user says their issue is resolved: congratulate them warmly and say goodbye.
+- If the user says their issue is fully resolved: congratulate them warmly and say goodbye.
 - If the issue is not resolved: apologize sincerely, suggest they contact their ISP or a technician, and say goodbye.
+- If the issue is only partially resolved (e.g. some devices work but not others): acknowledge the partial progress, but still close by suggesting they contact their ISP or a technician for the remaining issue. Do NOT offer further troubleshooting steps.
 Do NOT ask any follow-up questions. Do NOT offer further troubleshooting. Close the conversation.`,
     },
   },
