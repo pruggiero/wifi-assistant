@@ -133,4 +133,14 @@ describe('classifyQualifying (integration)', () => {
     ]);
     expect(result).toBe('reboot');
   });
+
+  // Routing signal present (recent change) but other devices confirmed working - exit should win
+  itLive('returns exit when other devices confirmed working even with a recent network change', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one? Have you made any recent changes?' },
+      { role: 'user', content: 'just my laptop, my phone and tablet are both working fine, I moved the router yesterday' },
+    ]);
+    expect(result).toBe('exit');
+  });
 });
