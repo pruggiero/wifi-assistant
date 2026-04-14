@@ -80,7 +80,7 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
     },
     steps: buildStepGroups(rebootSteps),
     prompts: {
-      start: `The qualifying questions are complete and a router reboot is the right next step. Tell the user you are going to walk them through a reboot and ask them to confirm they are ready before you begin.`,
+      start: `The qualifying questions are complete and a router reboot is the right next step. Briefly tell the user you are going to walk them through a reboot.`,
       questionContext: 'a router reboot',
       abort: `The user has indicated their issue is resolved or they no longer need to continue the reboot. Acknowledge this warmly and close the conversation. Do NOT continue the reboot steps. Do NOT ask any follow-up questions.`,
       stepsComplete: 'The reboot steps are complete. Ask the user if their issue is resolved.',

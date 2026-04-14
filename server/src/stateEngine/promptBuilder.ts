@@ -9,8 +9,13 @@ export function buildInstruction(state: InstructionState): string {
       return `The user's message is not something this WiFi support tool can help with. Respond briefly and politely: acknowledge what they said in one short sentence, let them know this tool is specifically for WiFi connectivity issues, and close the conversation. Do NOT give advice, tips, or information about the off-topic subject. Do NOT ask any follow-up questions.`;
 
     case 'flow-start': {
-      const prompts = state.issueType ? issueRegistry[state.issueType].prompts : null;
-      return prompts?.start ?? `The qualifying questions are complete. Tell the user you are going to walk them through the next steps and ask them to confirm they are ready before you begin.`;
+      const config = state.issueType ? issueRegistry[state.issueType] : null;
+      const firstStep = config?.steps[0]?.confirmStep;
+      const startPrompt = config?.prompts.start ?? `The qualifying questions are complete. Tell the user you are going to walk them through the next steps.`;
+      if (firstStep) {
+        return `${startPrompt}\n\nImmediately present this first step verbatim: "${firstStep.message}". Ask the user to confirm when they have completed it.`;
+      }
+      return startPrompt;
     }
 
     case 'flow-question': {
@@ -52,12 +57,12 @@ export function buildInstruction(state: InstructionState): string {
         const last = group.confirmStep;
         return `Guide the user through these steps:
 
-${autoSteps.map(s => `Step ${s.id}: "${s.message}" - relay this verbatim and immediately move on.`).join('\n')}
-Step ${last.id}: "${last.message}" - relay this verbatim and ask the user to confirm when they have completed this step before continuing.`;
+${autoSteps.map(s => `"${s.message}" - relay this verbatim and immediately move on.`).join('\n')}
+"${last.message}" - relay this verbatim and ask the user to confirm when they have completed this step before continuing.`;
       }
 
       return `Guide the user through this step:
-Step ${group.confirmStep.id}: "${group.confirmStep.message}"
+"${group.confirmStep.message}"
 Relay this verbatim and ask the user to confirm when they've completed it before continuing.`;
     }
 
