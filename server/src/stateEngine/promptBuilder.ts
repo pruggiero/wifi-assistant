@@ -55,13 +55,13 @@ export function buildInstruction(state: InstructionState): string {
       if (group.presentSteps.length > 1) {
         const autoSteps = group.presentSteps.slice(0, -1);
         const last = group.confirmStep;
-        return `Guide the user through these steps:
+        return `The user has completed the previous step. Present ONLY the following steps in order. Do not skip, reorder, or substitute any step based on conversation history.
 
-${autoSteps.map(s => `"${s.message}" - relay this verbatim and immediately move on.`).join('\n')}
+${autoSteps.map(s => `"${s.message}" - relay this verbatim and immediately continue.`).join('\n')}
 "${last.message}" - relay this verbatim and ask the user to confirm when they have completed this step before continuing.`;
       }
 
-      return `Guide the user through this step:
+      return `The user has completed the previous step. Present ONLY this step. Do not skip or substitute it based on conversation history.
 "${group.confirmStep.message}"
 Relay this verbatim and ask the user to confirm when they've completed it before continuing.`;
     }
