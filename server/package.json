@@ -6,6 +6,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
+    "test:eval": "vitest run --config vitest.eval.config.ts",
     "test:watch": "vitest"
   },
   "dependencies": {
