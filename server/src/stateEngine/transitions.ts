@@ -16,6 +16,8 @@ async function classifyExit(messages: Message[], openai: OpenAI): Promise<boolea
   if (!exitConditions.length) return false;
 
   const conditionList = exitConditions.map(c => `- ${c}`).join('\n');
+  const notes = Object.values(issueRegistry).map(c => c.qualifying.exitClassifierNote).filter(Boolean) as string[];
+  const classifierNotes = notes.length ? `\nIMPORTANT — ${notes.join(' ')}\n\n` : '\n';
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0,
@@ -32,10 +34,7 @@ async function classifyExit(messages: Message[], openai: OpenAI): Promise<boolea
 
 Reply YES only if any of the following are clearly true:
 ${conditionList}
-
-IMPORTANT — only reply NO (do not skip) if the user explicitly reports router hardware symptoms such as red lights, or lights that are usually on being off. Recent activity like moving the router, adding a new device, or changing settings is NOT a hardware symptom and does not affect this decision.
-
-Reply NO if none of the above exit criteria clearly apply, or if the situation is ambiguous.
+${classifierNotes}Reply NO if none of the above exit criteria clearly apply, or if the situation is ambiguous.
 
 Respond with JSON: { "skip": true } or { "skip": false }`,
       },

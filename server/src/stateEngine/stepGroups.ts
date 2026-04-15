@@ -25,6 +25,9 @@ export interface IssueQualifying {
   routingSignals?: string[];
   /** Conditions under which guided troubleshooting should be skipped. Each is a standalone condition. */
   exitCriteria?: string[];
+  /** Optional extra instruction appended to the exit classifier prompt. Use for issue-specific overrides
+   *  that clarify when exit criteria should or should not apply. */
+  exitClassifierNote?: string;
 
   /** Questions the LLM can draw from. It picks the 1-2 most relevant per turn, not all of them. */
   suggestedQuestions: string[];
@@ -82,7 +85,7 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
         'user has already attempted a reboot at home but the issue persists - still choose reboot to guide them through the proper procedure',
       ],
       exitCriteria: [
-        'the user has explicitly confirmed that other devices (e.g. phone, tablet, another laptop) are working fine and only one device is affected',
+        'the user has directly confirmed other named devices are working (e.g. "my phone works fine", "tablet connects normally") AND only one device is affected — stating only one device is affected without also confirming others work does NOT meet this criterion; this applies even if the user recently moved the router or made other network changes',
         'a specific website is down but general internet access is fine',
         'an ISP outage is suspected',
         'physical hardware damage is present',
