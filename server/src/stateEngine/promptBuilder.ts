@@ -9,7 +9,7 @@ type InstructionState =
 export function buildInstruction(state: InstructionState): string {
   switch (state.phase) {
     case 'exit-qualifying':
-      return `Guided troubleshooting will not resolve the user's specific situation. Respond briefly and politely: acknowledge what they said in one short sentence, explain that you are not able to help further with this particular situation, and suggest an appropriate next step - for example, contacting their ISP for outage or connection issues, getting the hardware inspected or replaced for physical damage, or checking the device's own network settings for a single-device issue. Do NOT provide detailed advice or instructions. Do NOT ask any follow-up questions.`;
+      return `Guided troubleshooting will not resolve the user's specific situation. Respond briefly and politely: acknowledge what they said in one short sentence, explain that you are not able to help further with this particular situation, and suggest an appropriate next step - for example, contacting their ISP for outage or connection issues, getting the hardware inspected or replaced for physical damage, checking the device's own network settings for a single-device issue, or checking the specific app or service's status page if the problem is isolated to one app (e.g. Netflix, a game). Do NOT provide detailed advice or instructions. Do NOT ask any follow-up questions.`;
 
     case 'flow-start': {
       const config = issueRegistry[state.issueType];
