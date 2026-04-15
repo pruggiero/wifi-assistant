@@ -157,4 +157,15 @@ describe('classifyQualifying (integration)', () => {
     ]);
     expect(result).toBe('reboot');
   });
+
+  // Guards the bug where "I don't have internet" (no device count established) was classified as reboot.
+  // Device count has not been established — must ask before routing.
+  itLive('returns continue when user says they have no internet but device count is unknown', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Can you describe what\'s happening with your WiFi?' },
+      { role: 'user', content: 'when i search where to buy a cat, it says i don\'t have internet' },
+    ]);
+    expect(result).toBe('continue');
+  });
 });

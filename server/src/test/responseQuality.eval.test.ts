@@ -252,4 +252,22 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response ask if the issue is resolved or if the WiFi is working?', response)).toBe('yes');
     expect(await judge('Does this response say goodbye or close the conversation?', response)).toBe('no');
   });
+
+  // Guards the bug where the resolution question handler answered off-topic questions (cat sites)
+  // instead of redirecting back to confirming the WiFi issue.
+  itLive('resolution question handler redirects off-topic questions back to the issue', async () => {
+    const instruction = `The user has asked a follow-up question. If it is related to their WiFi issue or ISP, answer it briefly and helpfully. If it is off-topic (unrelated to WiFi or internet), do not engage — politely redirect and ask if their issue is now resolved. Do NOT say goodbye. Do NOT close the conversation. Do NOT offer further troubleshooting steps.`;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: 'what are some good sites to look for cats?' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response recommend pet adoption websites or give advice about finding cats?', response)).toBe('no');
+    expect(await judge('Does this response ask if the WiFi issue is now resolved?', response)).toBe('yes');
+  });
 });

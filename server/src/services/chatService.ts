@@ -145,7 +145,7 @@ async function processResolution(
 
   if (decision === 'question') {
     return {
-      instruction: `The user has asked a follow-up question. Answer it briefly and helpfully. Then ask once more if their issue is now resolved. Do NOT say goodbye. Do NOT close the conversation. Do NOT offer further troubleshooting steps.`,
+      instruction: `The user has asked a follow-up question. If it is related to their WiFi issue or ISP, answer it briefly and helpfully. If it is off-topic (unrelated to WiFi or internet), do not engage — politely redirect and ask if their issue is now resolved. Do NOT say goodbye. Do NOT close the conversation. Do NOT offer further troubleshooting steps.`,
       nextState: state,
       stripHistory: false,
     };

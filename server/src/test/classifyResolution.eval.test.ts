@@ -79,4 +79,15 @@ describe('classifyResolution (integration)', () => {
     ]);
     expect(result).toBe('question');
   });
+
+  // Guards the bug where implicit confirmation ("I see cats now") was classified as question.
+  // User demonstrating they can use the internet counts as resolved.
+  itLive('returns resolved when user implicitly confirms internet is working', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Try connecting to the internet. Let me know if it works!' },
+      { role: 'user', content: 'oh i see cats now' },
+    ]);
+    expect(result).toBe('resolved');
+  });
 });

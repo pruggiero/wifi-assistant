@@ -80,7 +80,7 @@ async function classifyIssueType(
         content: `Based on the conversation so far, which guided troubleshooting flow should the user be routed to?
 
 ${issueDescriptions}
-- continue: Not enough information yet. Only choose this when it is genuinely unclear which flow applies - for example, if the number of affected devices has not been established. Do NOT choose continue when a routing signal is clearly present.
+- continue: Not enough information yet to identify the issue. Choose this when the number of affected devices has not been established — a user saying "I have no internet" or "the internet isn't working" without specifying whether it affects one device or many is NOT sufficient to choose reboot. Do NOT choose continue when a routing signal is clearly present.
 
 Respond with JSON: { "decision": "${validDecisions}" }`,
       },
@@ -158,7 +158,7 @@ async function classifyResolution(
         role: 'user',
         content: `Based on the user's most recent message, have they confirmed whether their WiFi issue is resolved?
 
-- resolved: user confirms their issue is fixed. Short affirmative replies immediately following a direct resolution question (e.g. "yes", "yep", "done", "looks good") should be treated as resolved.
+- resolved: user confirms their issue is fixed — including implicit confirmations where their actions show the internet is working (e.g. "I can browse now", "I see cats now", "it loaded"). Short affirmative replies immediately following a direct resolution question (e.g. "yes", "yep", "done", "looks good") should be treated as resolved.
 - partial: the issue is better but not fully resolved — use this for degraded-but-working states too (e.g. some things work but not everything, connected but slow, working but intermittent)
 - unresolved: user confirms the issue is still not fixed
 - pending: user explicitly says they are still checking (e.g. "hold on", "let me try", "checking now"), or has clearly not yet confirmed either way
