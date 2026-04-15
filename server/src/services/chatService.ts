@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { ConversationState, Message } from '../stateEngine/types';
 import { buildInstruction } from '../stateEngine/promptBuilder';
-import { classifyQualifying, classifyStepResponse } from '../stateEngine/transitions';
+import { classifyQualifying, classifyStepResponse, classifyResolution } from '../stateEngine/transitions';
 import { issueRegistry } from '../stateEngine/stepGroups';
 
 interface TurnResult {
@@ -24,11 +24,7 @@ export async function processTurn(
     case 'guided-steps':
       return processGuidedSteps(state, messages, openai);
     case 'resolution':
-      return {
-        instruction: buildInstruction(state),
-        nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
-        stripHistory: false,
-      };
+      return processResolution(state, messages, openai);
     default:
       throw new Error(`Unhandled phase in processTurn: ${(state as ConversationState).phase}`);
   }
@@ -129,6 +125,28 @@ async function processGuidedSteps(
   return {
     instruction: buildInstruction(nextState),
     nextState,
+    stripHistory: false,
+  };
+}
+
+async function processResolution(
+  state: ConversationState,
+  messages: Message[],
+  openai: OpenAI
+): Promise<TurnResult> {
+  const decision = await classifyResolution(messages.slice(-CLASSIFIER_MESSAGES), openai);
+
+  if (decision === 'pending') {
+    return {
+      instruction: `The user is still checking whether their issue is resolved. Respond warmly and let them know you will be here when they are ready. Do NOT say goodbye. Do NOT close the conversation.`,
+      nextState: state,
+      stripHistory: false,
+    };
+  }
+
+  return {
+    instruction: buildInstruction(state),
+    nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
     stripHistory: false,
   };
 }

@@ -139,4 +139,41 @@ Respond with JSON: { "decision": "confirm" | "question" | "abort" }`,
   }
 }
 
-export { classifyQualifying, classifyStepResponse };
+async function classifyResolution(
+  messages: Message[],
+  openai: OpenAI
+): Promise<'resolved' | 'unresolved' | 'pending'> {
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    temperature: 0,
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content: 'You are a classifier for a WiFi support system. Respond with JSON only.',
+      },
+      ...messages,
+      {
+        role: 'user',
+        content: `Based on the user's most recent message, have they confirmed whether their WiFi issue is resolved?
+
+- resolved: user confirms the issue is fixed or working
+- unresolved: user confirms the issue is still not working
+- pending: user is still checking, gave an ambiguous response, or has not yet confirmed either way
+
+Respond with JSON: { "decision": "resolved" | "unresolved" | "pending" }`,
+      },
+    ],
+  });
+
+  try {
+    const parsed = JSON.parse(completion.choices[0].message.content ?? '{}') as { decision?: string };
+    if (parsed.decision === 'resolved') return 'resolved';
+    if (parsed.decision === 'unresolved') return 'unresolved';
+    return 'pending';
+  } catch {
+    return 'pending';
+  }
+}
+
+export { classifyQualifying, classifyStepResponse, classifyResolution };

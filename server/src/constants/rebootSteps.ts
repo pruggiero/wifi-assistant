@@ -3,11 +3,11 @@ import { Step } from '../stateEngine/types';
 export const rebootSteps: Step[] = [
   {
     message: 'Please unplug the power cable from both your router and modem.',
-    waitForUser: true,
+    waitForUser: false,
   },
   {
     message: 'Wait about 10 seconds.',
-    waitForUser: false,
+    waitForUser: true,
   },
   {
     message: 'Now plug your modem back in and wait about 2 minutes until it is fully online.',

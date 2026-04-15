@@ -10,10 +10,14 @@ export function buildInstruction(state: InstructionState): string {
 
     case 'flow-start': {
       const config = state.issueType ? issueRegistry[state.issueType] : null;
-      const firstStep = config?.steps[0]?.confirmStep;
+      const firstGroup = config?.steps[0];
       const startPrompt = config?.prompts.start ?? `The qualifying questions are complete. Tell the user you are going to walk them through the next steps.`;
-      if (firstStep) {
-        return `${startPrompt}\n\nPresent this first step verbatim: "${firstStep.message}". Ask the user to confirm when they have completed it.`;
+      if (firstGroup) {
+        if (firstGroup.presentSteps.length > 1) {
+          const stepLines = firstGroup.presentSteps.map((s, i) => `${i + 1}. ${s.message}`).join('\n');
+          return `${startPrompt}\n\nPresent these first steps verbatim as a numbered list:\n${stepLines}\nAsk the user to confirm when they have completed all of these steps.`;
+        }
+        return `${startPrompt}\n\nPresent this first step verbatim: "${firstGroup.confirmStep.message}". Ask the user to confirm when they have completed it.`;
       }
       return startPrompt;
     }

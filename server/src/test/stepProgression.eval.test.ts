@@ -45,8 +45,8 @@ async function judge(question: string, response: string): Promise<'yes' | 'no'> 
 }
 
 // Step index map (0-based groups after buildStepGroups):
-// Group 0: step 1 (unplug both) - confirm
-// Group 1: step 2 (wait 10s auto) + step 3 (plug modem back in) - confirm
+// Group 0: step 1 (unplug both auto) + step 2 (wait 10s) - confirm
+// Group 1: step 3 (plug modem back in) - confirm
 // Group 2: step 4 (plug router back in) - confirm
 // Group 3: step 5 (wait for power light auto) + step 6 (try connecting) - confirm
 
@@ -73,13 +73,22 @@ describe('step progression (LLM-as-judge)', () => {
     expect(await judge('Does this response ask the user to plug anything back in?', response)).toBe('no');
   });
 
-  // Step 1 - group 1: wait 10s then plug modem back in
-  itLive('step 1: tells user to wait 10 seconds before plugging modem back in', async () => {
+  // Step 1 - group 1: plug modem back in
+  itLive('step 1: asks user to plug modem back in', async () => {
     const response = await getResponse(1, [
-      { role: 'user', content: 'unplugged both' },
+      { role: 'user', content: 'unplugged both and waited' },
     ]);
-    expect(await judge(`Does this response tell the user to wait 10 seconds (not 30 seconds or any other duration)?`, response)).toBe('yes');
     expect(await judge('Does this response ask the user to plug the modem back in?', response)).toBe('yes');
+    expect(await judge('Does this response ask the user to plug the router back in?', response)).toBe('no');
+  });
+
+  // Timing verbatim check: 10s stated as part of group 0, not paraphrased
+  itLive('step 0: relays 10 second wait verbatim, not paraphrased', async () => {
+    const response = await getResponse(0, [
+      { role: 'user', content: "ok, let's start" },
+    ]);
+    expect(await judge('Does this response mention a wait time of 10 seconds (not 30 seconds or any other amount)?', response)).toBe('yes');
+    expect(await judge('Does this response mention waiting 30 seconds?', response)).toBe('no');
   });
 
   // Step 2 - group 2: plug router back in
@@ -100,15 +109,7 @@ describe('step progression (LLM-as-judge)', () => {
     expect(await judge('Does this response ask the user to try connecting to the internet?', response)).toBe('yes');
   });
 
-  // Timing verbatim check: 10s not paraphrased to 30s
-  itLive('step 1: relays 10 second wait verbatim, not paraphrased', async () => {
-    const response = await getResponse(1, [
-      { role: 'assistant', content: "Great! Please unplug the power cable from both your router and modem. Let me know when you've done that." },
-      { role: 'user', content: 'done, both unplugged' },
-    ]);
-    expect(await judge('Does this response mention a wait time of 10 seconds (not 30 seconds or any other amount)?', response)).toBe('yes');
-    expect(await judge('Does this response mention waiting 30 seconds?', response)).toBe('no');
-  });
+  // Timing verbatim check moved to step 0 above
 
   // Correction handling: user says they misread, roll back
   itLive('step 0: handles user correction gracefully and stays on unplug step', async () => {
@@ -151,7 +152,7 @@ describe('flow-start step 1 integrity (LLM-as-judge)', () => {
       { role: 'user', content: "yes both my laptop and phone lost WiFi. I already tried unplugging the router." },
     ]);
     expect(await judge('Does this response ask the user to unplug the power cable from both the router and modem?', response)).toBe('yes');
-    expect(await judge('Does this response ask the user to wait 10 seconds or plug anything back in?', response)).toBe('no');
+    expect(await judge('Does this response ask the user to plug anything back in?', response)).toBe('no');
   });
 
   // No prior context - clean start
@@ -160,6 +161,6 @@ describe('flow-start step 1 integrity (LLM-as-judge)', () => {
       { role: 'user', content: "ok let's do it" },
     ]);
     expect(await judge('Does this response ask the user to unplug the power cable from both the router and modem?', response)).toBe('yes');
-    expect(await judge('Does this response ask the user to wait 10 seconds or plug anything back in?', response)).toBe('no');
+    expect(await judge('Does this response ask the user to plug anything back in?', response)).toBe('no');
   });
 });

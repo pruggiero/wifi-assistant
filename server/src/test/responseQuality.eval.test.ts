@@ -90,4 +90,20 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response offer further troubleshooting steps such as toggling WiFi or forgetting the network?', response)).toBe('no');
     expect(await judge('Does this response ask a follow-up question?', response)).toBe('no');
   });
+
+  // Guards the resolution-pending bug where "let me check" closed the conversation immediately
+  itLive('resolution phase does not close conversation when user is still checking', async () => {
+    const pendingInstruction = `The user is still checking whether their issue is resolved. Respond warmly and let them know you will be here when they are ready. Do NOT say goodbye. Do NOT close the conversation.`;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${pendingInstruction}` },
+        { role: 'user', content: 'uhh let me check' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response close the conversation or say goodbye?', response)).toBe('no');
+    expect(await judge('Does this response tell the user to take their time or that you will be here when ready?', response)).toBe('yes');
+  });
 });
