@@ -78,7 +78,7 @@ function buildStepGroups(steps: Step[]): StepGroup[] {
 export const issueRegistry: Record<IssueType, IssueConfig> = {
   reboot: {
     qualifying: {
-      classifierDescription: `WiFi is down or slow across all (or most) devices on the network, suggesting a router or modem issue`,
+      classifierDescription: `WiFi is not working across multiple (or all) devices — choose reboot. This is the strongest signal; if the user confirms multiple devices are affected, do not choose continue.`,
       routingSignals: [
         'router shows abnormal lights (red, or lights off that are usually on) - choose reboot even if only one device is affected',
         'user made recent network changes (moved the router, added a new device, changed settings) - choose reboot even if only one device is affected',

@@ -80,7 +80,7 @@ async function classifyIssueType(
         content: `Based on the conversation so far, which guided troubleshooting flow should the user be routed to?
 
 ${issueDescriptions}
-- continue: Not enough information yet. Choose this when the scope of the issue or likely cause is still unclear. When in doubt, choose continue.
+- continue: Not enough information yet. Only choose this when it is genuinely unclear which flow applies — for example, if the number of affected devices has not been established. Do NOT choose continue when a routing signal is clearly present.
 
 Respond with JSON: { "decision": "${validDecisions}" }`,
       },
