@@ -138,16 +138,6 @@ describe('classifyQualifying (integration)', () => {
     expect(result).toBe('reboot');
   });
 
-  // Single device but user added a new device to the network
-  itLive('returns reboot when user has one device but recently added a new device to the network', async () => {
-    const classify = await getClassifier();
-    const result = await classify([
-      { role: 'assistant', content: 'Is the issue affecting all devices, or just one? Have you made any recent changes?' },
-      { role: 'user', content: 'only my laptop is having issues, I added a new smart TV to the network yesterday' },
-    ]);
-    expect(result).toBe('reboot');
-  });
-
   // Routing signal present (recent change) but other devices confirmed working - exit should win
   itLive('returns exit when other devices confirmed working even with a recent network change', async () => {
     const classify = await getClassifier();

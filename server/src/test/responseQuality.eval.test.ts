@@ -234,4 +234,22 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response include guidance on how to contact their ISP, such as mentioning their website, billing statement, or the back of the router?', response)).toBe('yes');
     expect(await judge('Does this response ask a follow-up question?', response)).toBe('no');
   });
+
+  // Guards the bug where stepsComplete was used for the last-step-confirm path (nextState=resolution)
+  // and sometimes generated a premature goodbye. That path now uses a simple ask-only prompt.
+  itLive('last step confirmed with apparent resolution asks rather than closing immediately', async () => {
+    const instruction = `All steps are complete. Ask the user warmly if their WiFi issue is now resolved. Do NOT say goodbye. Do NOT offer further troubleshooting steps.`;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: 'ok i waited, looks like its working now' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response ask if the issue is resolved or if the WiFi is working?', response)).toBe('yes');
+    expect(await judge('Does this response say goodbye or close the conversation?', response)).toBe('no');
+  });
 });

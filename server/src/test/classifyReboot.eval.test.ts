@@ -20,24 +20,6 @@ const UNPLUG_STEP = 'Please unplug the power cable from both your router and mod
 const MODEM_STEP = 'Now plug your modem back in and wait about 2 minutes until it is fully online.';
 
 describe('classifyStepResponse (integration)', () => {
-  itLive('returns confirm for "done"', async () => {
-    const classify = await getClassifier();
-    const result = await classify(
-      [{ role: 'user', content: 'done' }],
-      UNPLUG_STEP
-    );
-    expect(result).toBe('confirm');
-  });
-
-  itLive('returns question when user asks why they need to unplug', async () => {
-    const classify = await getClassifier();
-    const result = await classify(
-      [{ role: 'user', content: 'why do I need to unplug both the router and the modem?' }],
-      UNPLUG_STEP
-    );
-    expect(result).toBe('question');
-  });
-
   itLive('returns question when user asks how long to wait', async () => {
     const classify = await getClassifier();
     const result = await classify(

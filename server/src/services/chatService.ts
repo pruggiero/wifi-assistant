@@ -116,7 +116,9 @@ async function processGuidedSteps(
     : { phase: 'guided-steps', issueType: state.issueType, stepIndex: nextStepIndex };
 
   if (isLastStep) {
-    return { instruction: config.prompts.stepsComplete, nextState, stripHistory: false };
+    // Use a simple ask-only prompt here — stepsComplete may generate a goodbye,
+    // but the next state is `resolution`, not `closed`. The resolution phase handles closing.
+    return { instruction: `All steps are complete. Ask the user warmly if their WiFi issue is now resolved. Do NOT say goodbye. Do NOT offer further troubleshooting steps.`, nextState, stripHistory: false };
   }
 
   return {
