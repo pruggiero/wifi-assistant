@@ -1,53 +1,16 @@
 ﻿import OpenAI from 'openai';
-import { ConversationState, IssueType, Message } from './types';
+import { IssueType, Message } from './types';
 import { issueRegistry } from './stepGroups';
-
-export async function getNextState(
-  current: ConversationState,
-  messages: Message[],
-  openai: OpenAI
-): Promise<ConversationState> {
-  switch (current.phase) {
-    case 'qualifying': {
-      const decision = await classifyQualifying(messages, openai);
-      if (decision === 'exit') return { phase: 'closed', issueType: null, stepIndex: 0 };
-      if (decision !== 'continue' && decision !== 'unclear') {
-        return { phase: 'guided-steps', issueType: decision, stepIndex: 0 };
-      }
-      return current; // stay in qualifying until enough info
-    }
-
-    case 'guided-steps': {
-      if (!current.issueType) return current;
-      const groups = issueRegistry[current.issueType].steps;
-      const nextStepIndex = current.stepIndex + 1;
-      if (nextStepIndex >= groups.length) {
-        return { phase: 'resolution', issueType: current.issueType, stepIndex: 0 };
-      }
-      return { phase: 'guided-steps', issueType: current.issueType, stepIndex: nextStepIndex };
-    }
-
-    case 'resolution':
-      return { phase: 'closed', issueType: null, stepIndex: 0 };
-
-    case 'closed':
-      return current;
-  }
-}
-
-const CONFIDENCE_THRESHOLD = 0.4; // if top-token probability < 40%, classifier is too uncertain to trust
 
 async function classifyQualifying(
   messages: Message[],
   openai: OpenAI
-): Promise<IssueType | 'exit' | 'continue' | 'unclear'> {
-  // Check exit first. If it applies, skip issue-type routing entirely.
+): Promise<IssueType | 'exit' | 'continue'> {
   const shouldExit = await classifyExit(messages, openai);
   if (shouldExit) return 'exit';
   return classifyIssueType(messages, openai);
 }
 
-// Should we skip guided troubleshooting for this user?
 async function classifyExit(messages: Message[], openai: OpenAI): Promise<boolean> {
   const exitConditions = Object.values(issueRegistry).flatMap(c => c.qualifying.exitCriteria ?? []);
   if (!exitConditions.length) return false;
@@ -56,10 +19,11 @@ async function classifyExit(messages: Message[], openai: OpenAI): Promise<boolea
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0,
+    response_format: { type: 'json_object' },
     messages: [
       {
         role: 'system',
-        content: 'You are a classifier for a WiFi support system. Reply with exactly one word: yes or no.',
+        content: 'You are a classifier for a WiFi support system. Respond with JSON only.',
       },
       ...messages,
       {
@@ -69,23 +33,30 @@ async function classifyExit(messages: Message[], openai: OpenAI): Promise<boolea
 Reply YES only if any of the following are clearly true:
 ${conditionList}
 
-Reply NO if none of the above clearly apply, or if the situation is ambiguous.
+IMPORTANT — always reply NO (do not skip) if:
+- The user reports router hardware symptoms (red lights, lights off that are usually on)
+- Even if only one device is affected, router symptoms warrant guided steps
 
-Reply with exactly one word: yes or no`,
+Reply NO if none of the above exit criteria clearly apply, or if the situation is ambiguous.
+
+Respond with JSON: { "skip": true } or { "skip": false }`,
       },
     ],
-    max_tokens: 5,
   });
 
-  const text = completion.choices[0].message.content?.toLowerCase().trim() ?? 'no';
-  return text.startsWith('yes');
+  try {
+    const parsed = JSON.parse(completion.choices[0].message.content ?? '{}') as { skip?: boolean };
+    return parsed.skip === true;
+  } catch {
+    return false;
+  }
 }
 
-// Which issue type applies, or do we need more info?
 async function classifyIssueType(
   messages: Message[],
   openai: OpenAI
-): Promise<IssueType | 'continue' | 'unclear'> {
+): Promise<IssueType | 'continue'> {
+  const issueKeys = Object.keys(issueRegistry) as IssueType[];
   const issueDescriptions = (Object.entries(issueRegistry) as [IssueType, (typeof issueRegistry)[IssueType]][])
     .map(([key, config]) => {
       const signals = config.qualifying.routingSignals;
@@ -95,18 +66,16 @@ async function classifyIssueType(
       return `- ${key}: ${config.qualifying.classifierDescription}${signalLines}`;
     })
     .join('\n');
-  const issueKeys = Object.keys(issueRegistry) as IssueType[];
-  const labelList = [...issueKeys, 'continue'].join(', ');
+  const validDecisions = [...issueKeys, 'continue'].join(' | ');
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0,
-    logprobs: true,
-    top_logprobs: 1,
+    response_format: { type: 'json_object' },
     messages: [
       {
         role: 'system',
-        content: 'You are a classifier for a WiFi support system. Reply with exactly one word.',
+        content: 'You are a classifier for a WiFi support system. Respond with JSON only.',
       },
       ...messages,
       {
@@ -114,20 +83,20 @@ async function classifyIssueType(
         content: `Based on the conversation so far, which guided troubleshooting flow should the user be routed to?
 
 ${issueDescriptions}
-- continue: Not enough information yet to identify which issue type applies. Choose this when the scope of the issue (e.g. how many devices are affected) or the likely cause is still unclear. When in doubt, choose continue.
+- continue: Not enough information yet. Choose this when the scope of the issue or likely cause is still unclear. When in doubt, choose continue.
 
-Reply with exactly one word: ${labelList}`,
+Respond with JSON: { "decision": "${validDecisions}" }`,
       },
     ],
-    max_tokens: 10,
   });
 
-  const logprob = completion.choices[0].logprobs?.content?.[0]?.logprob ?? 0;
-  if (Math.exp(logprob) < CONFIDENCE_THRESHOLD) return 'unclear';
-
-  const text = completion.choices[0].message.content?.toLowerCase().trim() ?? 'continue';
-  const matched = issueKeys.find(k => text.startsWith(k));
-  return matched ?? 'continue';
+  try {
+    const parsed = JSON.parse(completion.choices[0].message.content ?? '{}') as { decision?: string };
+    const matched = issueKeys.find(k => k === parsed.decision);
+    return matched ?? 'continue';
+  } catch {
+    return 'continue';
+  }
 }
 
 async function classifyStepResponse(
@@ -135,19 +104,18 @@ async function classifyStepResponse(
   currentStepMessage: string,
   openai: OpenAI,
   issueType?: IssueType | null
-): Promise<'confirm' | 'question' | 'abort' | 'unclear'> {
+): Promise<'confirm' | 'question' | 'abort'> {
   const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
   const flowContext = issueType ? issueRegistry[issueType].prompts.questionContext : 'the guided steps';
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0,
-    logprobs: true,
-    top_logprobs: 1,
+    response_format: { type: 'json_object' },
     messages: [
       {
         role: 'system',
-        content: 'You are a classifier for a WiFi support chatbot. Reply with exactly one word.',
+        content: 'You are a classifier for a WiFi support chatbot. Respond with JSON only.',
       },
       {
         role: 'user',
@@ -155,23 +123,23 @@ async function classifyStepResponse(
 Their response was: "${lastUserMessage}"
 
 Classify their response:
-- confirm: they completed the step or are ready to continue, including saying the step worked or resolved the issue
+- confirm: they completed the step they were asked to perform and are ready to continue
 - question: they are asking for clarification, made a mistake, or need help with the current step
-- abort: they explicitly want to stop the flow (e.g. "nevermind", "never mind", "stop", "cancel", "I want to quit")
+- abort: they want to exit the flow — including explicitly saying stop/cancel/nevermind, OR saying the issue has resolved on its own without them completing the step (e.g. "oh it's working now", "nevermind it's all working again")
 
-Reply with exactly one word: confirm, question, or abort`,
+Respond with JSON: { "decision": "confirm" | "question" | "abort" }`,
       },
     ],
-    max_tokens: 10,
   });
 
-  const logprob = completion.choices[0].logprobs?.content?.[0]?.logprob ?? 0;
-  if (Math.exp(logprob) < CONFIDENCE_THRESHOLD) return 'unclear';
-
-  const text = completion.choices[0].message.content?.toLowerCase().trim() ?? 'confirm';
-  if (text.startsWith('question')) return 'question';
-  if (text.startsWith('abort')) return 'abort';
-  return 'confirm';
+  try {
+    const parsed = JSON.parse(completion.choices[0].message.content ?? '{}') as { decision?: string };
+    if (parsed.decision === 'question') return 'question';
+    if (parsed.decision === 'abort') return 'abort';
+    return 'confirm';
+  } catch {
+    return 'confirm';
+  }
 }
 
 export { classifyQualifying, classifyStepResponse };

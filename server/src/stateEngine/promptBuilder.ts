@@ -65,8 +65,7 @@ export function buildInstruction(state: InstructionState): string {
 - If the issue is not resolved: apologize sincerely, suggest they contact their ISP or a technician, and say goodbye.
 Do NOT ask any follow-up questions. Do NOT offer further troubleshooting. Close the conversation.`;
     }
-
-    case 'closed':
-      return `The conversation has concluded. Offer a brief warm closing if needed.`;
+    default:
+      throw new Error(`Unhandled phase in buildInstruction: ${(state as { phase: string }).phase}`);
   }
 }
