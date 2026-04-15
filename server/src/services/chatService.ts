@@ -109,6 +109,14 @@ async function processGuidedSteps(
     };
   }
 
+  if (decision === 'resolved') {
+    return {
+      instruction: config.prompts.stepsComplete,
+      nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
+      stripHistory: false,
+    };
+  }
+
   // confirm — advance to next step
   const nextStepIndex = state.stepIndex + 1;
   const isLastStep = nextStepIndex >= config.steps.length;
@@ -136,14 +144,30 @@ async function processResolution(
 
   if (decision === 'pending') {
     return {
-      instruction: `The user is still checking whether their issue is resolved. Respond warmly and let them know you will be here when they are ready. Do NOT say goodbye. Do NOT close the conversation.`,
+      instruction: `The user is still checking whether their issue is resolved. Respond warmly and let them know you will be here when they are ready. Do NOT offer troubleshooting steps or technical advice. Do NOT say goodbye. Do NOT close the conversation.`,
       nextState: state,
       stripHistory: false,
     };
   }
 
+  if (decision === 'question') {
+    return {
+      instruction: `The user has asked a follow-up question. Answer it briefly and helpfully. Then ask once more if their issue is now resolved. Do NOT offer further troubleshooting steps.`,
+      nextState: state,
+      stripHistory: false,
+    };
+  }
+
+  const config = issueRegistry[state.issueType!];
+  const outcomeContext = decision === 'resolved'
+    ? 'The user has confirmed their issue is resolved or improved. '
+    : 'The user has confirmed their issue is NOT resolved. ';
+  const fallbackResolution = decision === 'resolved'
+    ? 'Congratulate the user warmly and say goodbye. Do NOT ask follow-up questions.'
+    : 'Apologize sincerely and suggest they contact their ISP or a technician. Say goodbye. Do NOT ask follow-up questions.';
+
   return {
-    instruction: buildInstruction(state),
+    instruction: outcomeContext + (config.prompts.resolution ?? fallbackResolution),
     nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
     stripHistory: false,
   };

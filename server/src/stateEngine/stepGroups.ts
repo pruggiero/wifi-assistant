@@ -85,7 +85,7 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
         'user has already attempted a reboot at home but the issue persists - still choose reboot to guide them through the proper procedure',
       ],
       exitCriteria: [
-        'the user has directly confirmed other named devices are working (e.g. "my phone works fine", "tablet connects normally") AND only one device is affected — stating only one device is affected without also confirming others work does NOT meet this criterion; this applies even if the user recently moved the router or made other network changes',
+        'the user has directly confirmed other named devices are working AND only one device is affected — e.g. "just my laptop, phone and tablet are fine", "my phone works fine, only the laptop is broken", "tablet connects normally but not my PC". Stating only one device is affected without also confirming others work does NOT meet this criterion; this applies even if the user recently moved the router or made other network changes',
         'a specific website is down but general internet access is fine',
         'an ISP outage is suspected',
         'the router has visible physical damage (e.g. cracked, dropped, burnt, flooded)',
@@ -108,12 +108,11 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
 - If they have already indicated the issue is not resolved: apologize sincerely, suggest they contact their ISP or a technician, and say goodbye.
 - If the outcome is not yet clear: ask them if their issue is resolved.
 Do NOT offer troubleshooting steps. Do NOT ask any follow-up questions beyond asking about the outcome.`,
-      resolution: `This is your final message. The router reboot is complete.
-- If the user says their issue is fully resolved: congratulate them warmly and say goodbye.
-- If the issue is working but degraded (e.g. slow, intermittent, not as fast as before): acknowledge the improvement, let them know that if it continues they should contact their ISP, and say goodbye. Do NOT offer further troubleshooting.
-- If the issue is not resolved: apologize sincerely, suggest they contact their ISP or a technician, and say goodbye.
-- If the issue is only partially resolved (e.g. some devices work but not others): acknowledge the partial progress, suggest they contact their ISP or a technician for the remaining issue, and say goodbye. Do NOT offer further troubleshooting steps.
-Do NOT ask any follow-up questions. Do NOT offer further troubleshooting. Close the conversation.`,
+      resolution: `This is your final message.
+- Resolved or improved: congratulate warmly and say goodbye. If working but slow or intermittent, mention they should contact their ISP if it continues.
+- Partially resolved (some devices work, others don't): acknowledge the partial progress, suggest contacting their ISP or a technician, say goodbye.
+- Not resolved: apologize sincerely, tell them to contact their ISP or a technician, and say goodbye.
+Do NOT offer further troubleshooting steps or suggest any other procedures (no factory reset, no additional reboots). Do NOT ask follow-up questions. Close the conversation.`,
     },
   },
 };

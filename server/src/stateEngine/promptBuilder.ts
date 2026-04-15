@@ -9,7 +9,7 @@ type InstructionState =
 export function buildInstruction(state: InstructionState): string {
   switch (state.phase) {
     case 'exit-qualifying':
-      return `The user's message is not something this WiFi support tool can help with. Respond briefly and politely: acknowledge what they said in one short sentence, let them know this tool is specifically for WiFi connectivity issues, and close the conversation. Do NOT give advice, tips, or information about the off-topic subject. Do NOT ask any follow-up questions.`;
+      return `Guided troubleshooting will not resolve the user's specific situation. Respond briefly and politely: acknowledge what they said in one short sentence, explain that you are not able to help further with this particular situation, and suggest an appropriate next step — for example, contacting their ISP for outage or connection issues, getting the hardware inspected or replaced for physical damage, or checking the device's own network settings for a single-device issue. Do NOT provide detailed advice or instructions. Do NOT ask any follow-up questions.`;
 
     case 'flow-start': {
       const config = issueRegistry[state.issueType];
@@ -29,9 +29,17 @@ export function buildInstruction(state: InstructionState): string {
     case 'flow-question': {
       const config = issueRegistry[state.issueType];
       const group = config.steps[state.stepIndex];
-      const stepDesc = group ? group.confirmStep.message : 'the current step';
       const context = config.prompts.questionContext;
-      return `The user has asked a question while being guided through ${context}. Answer their question clearly and helpfully. After answering, remind them where they left off - they still need to complete this step: "${stepDesc}". Ask them to confirm when they have done so.`;
+      let reminder: string;
+      if (!group) {
+        reminder = 'the current step';
+      } else if (group.presentSteps.length > 1) {
+        const stepLines = group.presentSteps.map((s, i) => `${i + 1}. ${s.message}`).join('\n');
+        reminder = `these steps (in order):\n${stepLines}`;
+      } else {
+        reminder = `"${group.confirmStep.message}"`;
+      }
+      return `The user has asked a question while being guided through ${context}. Answer their question concisely. Then remind them they still need to complete ${reminder}. Ask them to confirm when they have done so. Do NOT mention or preview any future steps.`;
     }
 
     case 'flow-abort': {
@@ -53,7 +61,6 @@ export function buildInstruction(state: InstructionState): string {
     case 'guided-steps': {
       const config = issueRegistry[state.issueType!];
       const group = config.steps[state.stepIndex];
-      if (!group) return config.prompts.stepsComplete;
 
       const noAffirmation = `Do NOT open with "Great!", "Perfect!", or any similar affirmation. `;
       if (group.presentSteps.length > 1) {
@@ -62,13 +69,6 @@ export function buildInstruction(state: InstructionState): string {
       }
 
       return `${noAffirmation}The user has completed the previous step. Present ONLY this step verbatim: "${group.confirmStep.message}". Ask the user to confirm when they have completed it before continuing.`;
-    }
-
-    case 'resolution': {
-      return issueRegistry[state.issueType!].prompts.resolution ?? `This is your final message. The troubleshooting steps are complete.
-- If the user says their issue is resolved: congratulate them warmly and say goodbye.
-- If the issue is not resolved: apologize sincerely, suggest they contact their ISP or a technician, and say goodbye.
-Do NOT ask any follow-up questions. Do NOT offer further troubleshooting. Close the conversation.`;
     }
 
     default:

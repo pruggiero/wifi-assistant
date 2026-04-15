@@ -74,13 +74,13 @@ describe('classifyStepResponse (integration)', () => {
     expect(result).toBe('confirm');
   });
 
-  itLive('returns abort when user says their internet is working again', async () => {
+  itLive('returns resolved when user says their internet is working again', async () => {
     const classify = await getClassifier();
     const result = await classify(
       [{ role: 'user', content: 'oh wait nevermind its all working again' }],
       UNPLUG_STEP
     );
-    expect(result).toBe('abort');
+    expect(result).toBe('resolved');
   });
 
   itLive('returns abort when user says nevermind mid-reboot', async () => {

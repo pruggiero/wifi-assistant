@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import OpenAI from 'openai';
 import { SYSTEM_PROMPT } from '../constants/systemPrompt';
 import { buildInstruction } from '../stateEngine/promptBuilder';
+import { issueRegistry } from '../stateEngine/stepGroups';
 
 // LLM-as-judge evals: use a second LLM call to score the quality of the first.
 // These guard response behaviour that is hard to assert with string matching.
@@ -46,19 +47,31 @@ async function judge(question: string, response: string): Promise<'yes' | 'no'> 
 describe('response quality (LLM-as-judge)', () => {
   // Guards the bug where resolution phase kept asking follow-up questions
   itLive('resolution phase closes conversation when issue is resolved', async () => {
-    const response = await getResponse(
-      { phase: 'resolution', issueType: 'reboot', stepIndex: 0 },
-      'Yes! My internet is working again, thank you!'
-    );
+    const instruction = 'The user has confirmed their issue is resolved or improved. ' + issueRegistry['reboot'].prompts.resolution;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: 'Yes! My internet is working again, thank you!' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
     expect(await judge('Does this response close the conversation without asking any follow-up questions?', response)).toBe('yes');
     expect(await judge('Does this response congratulate or express happiness that the issue is resolved?', response)).toBe('yes');
   });
 
   itLive('resolution phase suggests ISP or technician when issue is unresolved', async () => {
-    const response = await getResponse(
-      { phase: 'resolution', issueType: 'reboot', stepIndex: 0 },
-      'No, still not working after the reboot.'
-    );
+    const instruction = 'The user has confirmed their issue is NOT resolved. ' + issueRegistry['reboot'].prompts.resolution;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: 'No, still not working after the reboot.' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
     expect(await judge('Does this response suggest contacting an ISP or technician?', response)).toBe('yes');
     expect(await judge('Does this response ask the user to try more troubleshooting steps?', response)).toBe('no');
   });
@@ -82,10 +95,16 @@ describe('response quality (LLM-as-judge)', () => {
 
   // Guards the bug where partial success caused the LLM to improvise further troubleshooting
   itLive('resolution phase closes conversation on partial success without further troubleshooting', async () => {
-    const response = await getResponse(
-      { phase: 'resolution', issueType: 'reboot', stepIndex: 0 },
-      'The internet is working on my laptop now but my phone still cannot connect.'
-    );
+    const instruction = 'The user has confirmed their issue is NOT resolved. ' + issueRegistry['reboot'].prompts.resolution;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: 'The internet is working on my laptop now but my phone still cannot connect.' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
     expect(await judge('Does this response suggest contacting an ISP or technician for the remaining issue?', response)).toBe('yes');
     expect(await judge('Does this response offer further troubleshooting steps such as toggling WiFi or forgetting the network?', response)).toBe('no');
     expect(await judge('Does this response ask a follow-up question?', response)).toBe('no');
@@ -93,7 +112,7 @@ describe('response quality (LLM-as-judge)', () => {
 
   // Guards the resolution-pending bug where "let me check" closed the conversation immediately
   itLive('resolution phase does not close conversation when user is still checking', async () => {
-    const pendingInstruction = `The user is still checking whether their issue is resolved. Respond warmly and let them know you will be here when they are ready. Do NOT say goodbye. Do NOT close the conversation.`;
+    const pendingInstruction = `The user is still checking whether their issue is resolved. Respond warmly and let them know you will be here when they are ready. Do NOT offer troubleshooting steps or technical advice. Do NOT say goodbye. Do NOT close the conversation.`;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -109,10 +128,16 @@ describe('response quality (LLM-as-judge)', () => {
 
   // Guards the bug where "working but slow" triggered further troubleshooting instead of closing
   itLive('resolution phase closes conversation when issue is working but degraded', async () => {
-    const response = await getResponse(
-      { phase: 'resolution', issueType: 'reboot', stepIndex: 0 },
-      'ya its working now but is a bit slow'
-    );
+    const instruction = 'The user has confirmed their issue is resolved or improved. ' + issueRegistry['reboot'].prompts.resolution;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: 'ya its working now but is a bit slow' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
     expect(await judge('Does this response close the conversation or say goodbye?', response)).toBe('yes');
     expect(await judge('Does this response offer further troubleshooting steps or ask the user to try anything else?', response)).toBe('no');
   });

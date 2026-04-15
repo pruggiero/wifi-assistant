@@ -101,7 +101,7 @@ async function classifyStepResponse(
   currentStepMessage: string,
   openai: OpenAI,
   issueType?: IssueType | null
-): Promise<'confirm' | 'question' | 'abort'> {
+): Promise<'confirm' | 'question' | 'abort' | 'resolved'> {
   const flowContext = issueType ? issueRegistry[issueType].prompts.questionContext : 'the guided steps';
 
   const completion = await openai.chat.completions.create({
@@ -121,9 +121,10 @@ Their response was: "${lastUserMessage}"
 Classify their response:
 - confirm: they completed the step they were asked to perform and are ready to continue
 - question: they are asking for clarification, made a mistake, or need help with the current step
-- abort: they want to exit the flow — including explicitly saying stop/cancel/nevermind, OR saying the issue has resolved on its own without them completing the step (e.g. "oh it's working now", "nevermind it's all working again")
+- abort: they want to explicitly exit the flow (e.g. stop, cancel, nevermind, not right now)
+- resolved: the issue has resolved on its own without them completing the step (e.g. "oh it's working now", "nevermind it's all working again")
 
-Respond with JSON: { "decision": "confirm" | "question" | "abort" }`,
+Respond with JSON: { "decision": "confirm" | "question" | "abort" | "resolved" }`,
       },
     ],
   });
@@ -132,6 +133,7 @@ Respond with JSON: { "decision": "confirm" | "question" | "abort" }`,
     const parsed = JSON.parse(completion.choices[0].message.content ?? '{}') as { decision?: string };
     if (parsed.decision === 'question') return 'question';
     if (parsed.decision === 'abort') return 'abort';
+    if (parsed.decision === 'resolved') return 'resolved';
     return 'confirm';
   } catch {
     return 'question';
@@ -141,7 +143,7 @@ Respond with JSON: { "decision": "confirm" | "question" | "abort" }`,
 async function classifyResolution(
   messages: Message[],
   openai: OpenAI
-): Promise<'resolved' | 'unresolved' | 'pending'> {
+): Promise<'resolved' | 'unresolved' | 'pending' | 'question'> {
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0,
@@ -159,8 +161,9 @@ async function classifyResolution(
 - resolved: user confirms the issue is fixed or working. Short affirmatives ("done", "yes", "ok", "yep", "working", "all good", "looks good") immediately following a direct resolution question should be treated as resolved.
 - unresolved: user confirms the issue is still not working
 - pending: user explicitly says they are still checking (e.g. "hold on", "let me try", "checking now"), or has clearly not yet confirmed either way
+- question: user is asking a follow-up question without confirming the outcome (e.g. "why did this happen?", "what should I do if it happens again?")
 
-Respond with JSON: { "decision": "resolved" | "unresolved" | "pending" }`,
+Respond with JSON: { "decision": "resolved" | "unresolved" | "pending" | "question" }`,
       },
     ],
   });
@@ -169,6 +172,7 @@ Respond with JSON: { "decision": "resolved" | "unresolved" | "pending" }`,
     const parsed = JSON.parse(completion.choices[0].message.content ?? '{}') as { decision?: string };
     if (parsed.decision === 'resolved') return 'resolved';
     if (parsed.decision === 'unresolved') return 'unresolved';
+    if (parsed.decision === 'question') return 'question';
     return 'pending';
   } catch {
     return 'pending';
