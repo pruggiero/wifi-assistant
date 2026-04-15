@@ -110,8 +110,9 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
 Do NOT offer troubleshooting steps. Do NOT ask any follow-up questions beyond asking about the outcome.`,
       resolution: `This is your final message. The router reboot is complete.
 - If the user says their issue is fully resolved: congratulate them warmly and say goodbye.
+- If the issue is working but degraded (e.g. slow, intermittent, not as fast as before): acknowledge the improvement, let them know that if it continues they should contact their ISP, and say goodbye. Do NOT offer further troubleshooting.
 - If the issue is not resolved: apologize sincerely, suggest they contact their ISP or a technician, and say goodbye.
-- If the issue is only partially resolved (e.g. some devices work but not others): acknowledge the partial progress, but still close by suggesting they contact their ISP or a technician for the remaining issue. Do NOT offer further troubleshooting steps.
+- If the issue is only partially resolved (e.g. some devices work but not others): acknowledge the partial progress, suggest they contact their ISP or a technician for the remaining issue, and say goodbye. Do NOT offer further troubleshooting steps.
 Do NOT ask any follow-up questions. Do NOT offer further troubleshooting. Close the conversation.`,
     },
   },

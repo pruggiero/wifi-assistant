@@ -106,4 +106,14 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response close the conversation or say goodbye?', response)).toBe('no');
     expect(await judge('Does this response tell the user to take their time or that you will be here when ready?', response)).toBe('yes');
   });
+
+  // Guards the bug where "working but slow" triggered further troubleshooting instead of closing
+  itLive('resolution phase closes conversation when issue is working but degraded', async () => {
+    const response = await getResponse(
+      { phase: 'resolution', issueType: 'reboot', stepIndex: 0 },
+      'ya its working now but is a bit slow'
+    );
+    expect(await judge('Does this response close the conversation or say goodbye?', response)).toBe('yes');
+    expect(await judge('Does this response offer further troubleshooting steps or ask the user to try anything else?', response)).toBe('no');
+  });
 });
