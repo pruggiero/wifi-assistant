@@ -1,7 +1,7 @@
 ﻿import { ConversationState, IssueType } from './types';
 import { issueRegistry } from './stepGroups';
 
-export type InstructionState = ConversationState | { phase: 'exit-qualifying' | 'flow-start' | 'flow-question' | 'flow-abort'; issueType: IssueType | null; stepIndex: number };
+type InstructionState = ConversationState | { phase: 'exit-qualifying' | 'flow-start' | 'flow-question' | 'flow-abort'; issueType: IssueType | null; stepIndex: number };
 
 export function buildInstruction(state: InstructionState): string {
   switch (state.phase) {

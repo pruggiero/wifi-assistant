@@ -47,7 +47,7 @@ State is server-owned. The client sends `conversationState` back with each reque
 
 **Issue registry:** Issue types are defined in `issueRegistry` in `stepGroups.ts`. Each entry owns its qualifying config, step groups, and prompts. The classifier, qualifying prompt, routing, and resolution look-up all read from the registry. See [Adding an Issue Type](#adding-an-issue-type).
 
-**Pre-classification:** Two lightweight classifier calls run before the response is generated. `classifyExit` is a yes/no gate — it fires when guided troubleshooting is not appropriate (e.g. ISP outage, single device affected). If it does not fire, `classifyIssueType` routes to the matching issue type or returns `continue` to keep qualifying. Both use `response_format: { type: 'json_object' }` and return a typed `decision` field. Pre-classifying first means the LLM instruction always matches the state transition that is about to happen — without this, the response and state can disagree.
+**Pre-classification:** Two lightweight classifier calls run before the response is generated. `classifyExit` is a yes/no gate — it fires when guided troubleshooting is not appropriate (e.g. ISP outage, suspected hardware damage). If it does not fire, `classifyIssueType` routes to the matching issue type or returns `continue` to keep qualifying. Both use `response_format: { type: 'json_object' }` and return a typed `decision` field. Pre-classifying first means the LLM instruction always matches the state transition that is about to happen — without this, the response and state can disagree.
 
 **Turn processing:** All per-turn business logic lives in `chatService.processTurn` — classifier calls, transition decisions, instruction selection, and the `stripHistory` flag. The route handles only input validation, sanitization, and the final OpenAI call. `processTurn` returns `{ instruction, nextState, stripHistory }` and is mockable at the service boundary without touching HTTP.
 
@@ -80,7 +80,7 @@ State is server-owned. The client sends `conversationState` back with each reque
 - **No conversationId:** state is echoed back by the client with no session identifier. If two requests for the same conversation arrived concurrently, last-write-wins. Production would need a `conversationId` on each request and either server-side session storage or an optimistic-lock on state writes.
 - **No streaming:** responses are a single JSON payload. `nextState` is only known after the full completion, so streaming would require content chunks and `nextState` as separate SSE events — e.g. SSE with a `delta` event per token and a final `state` event.
 - **Basic error handling:** the route returns a generic 500 for all OpenAI failures. Production would distinguish rate-limit errors (retry with backoff), auth errors (don't retry, alert), and application errors (log with request context), and surface different messages to the client accordingly.
-- **Full history to response LLM:** classifiers use 8 messages, but the response LLM gets up to 25. A phase-aware window could reduce token cost once the flow moves past qualifying.
+- **Full history to response LLM:** the response LLM receives up to 25 messages. A phase-aware window could reduce token cost once the flow moves past qualifying.
 
 ---
 

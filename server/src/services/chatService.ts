@@ -4,7 +4,7 @@ import { buildInstruction } from '../stateEngine/promptBuilder';
 import { classifyQualifying, classifyStepResponse } from '../stateEngine/transitions';
 import { issueRegistry } from '../stateEngine/stepGroups';
 
-export interface TurnResult {
+interface TurnResult {
   instruction: string;
   nextState: ConversationState;
   stripHistory: boolean;

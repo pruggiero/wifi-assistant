@@ -2,7 +2,6 @@ export type IssueType = 'reboot'; // extend this union to add new issue types
 
 // waitForUser=false steps are presented without pausing; waitForUser=true steps wait for the user to confirm before advancing.
 export interface Step {
-  id: number;
   message: string;
   waitForUser: boolean;
 }
