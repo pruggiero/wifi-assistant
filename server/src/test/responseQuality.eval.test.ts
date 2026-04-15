@@ -253,8 +253,7 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response say goodbye or close the conversation?', response)).toBe('no');
   });
 
-  // Guards the bug where the resolution question handler answered off-topic questions (cat sites)
-  // instead of redirecting back to confirming the WiFi issue.
+  // Guards the resolution question handler redirecting off-topic questions
   itLive('resolution question handler redirects off-topic questions back to the issue', async () => {
     const instruction = `The user has asked a follow-up question. If it is related to their WiFi issue or ISP, answer it briefly and helpfully. If it is off-topic (unrelated to WiFi or internet), do not engage — politely redirect and ask if their issue is now resolved. Do NOT say goodbye. Do NOT close the conversation. Do NOT offer further troubleshooting steps.`;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -269,5 +268,43 @@ describe('response quality (LLM-as-judge)', () => {
     const response = completion.choices[0].message.content ?? '';
     expect(await judge('Does this response recommend pet adoption websites or give advice about finding cats?', response)).toBe('no');
     expect(await judge('Does this response ask if the WiFi issue is now resolved?', response)).toBe('yes');
+  });
+
+  // Guards the MAX_QUALIFYING_TURNS close — after too many turns without identifying the issue,
+  // the bot should close warmly and suggest the ISP, not cut off abruptly.
+  itLive('qualifying turn limit close is warm and suggests ISP', async () => {
+    const instruction = `You have asked several qualifying questions but could not identify the issue type. Apologize warmly and let the user know you're unable to continue - suggest they contact their ISP or a technician.`;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: 'i just don\'t know, everything seems normal but nothing is working' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response apologize or express that it was unable to help?', response)).toBe('yes');
+    expect(await judge('Does this response suggest contacting an ISP or technician?', response)).toBe('yes');
+    expect(await judge('Does this response ask another diagnostic question?', response)).toBe('no');
+  });
+
+  // Guards the abort response — user quits mid-reboot, should get a warm close not a cold one.
+  itLive('abort mid-reboot closes warmly without continuing steps', async () => {
+    const instruction = issueRegistry['reboot'].prompts.abort;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'assistant', content: 'Now plug your modem back in and wait about 2 minutes until it is fully online.' },
+        { role: 'user', content: 'actually forget it, I don\'t want to do this anymore' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response acknowledge the user\'s decision to stop?', response)).toBe('yes');
+    expect(await judge('Does this response continue with reboot instructions or ask the user to complete any steps?', response)).toBe('no');
+    expect(await judge('Does this response say goodbye or close the conversation?', response)).toBe('yes');
   });
 });

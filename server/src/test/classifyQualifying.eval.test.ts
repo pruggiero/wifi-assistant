@@ -168,4 +168,14 @@ describe('classifyQualifying (integration)', () => {
     ]);
     expect(result).toBe('continue');
   });
+
+  // Physical damage is an exit criterion — reboot won't help a broken router
+  itLive('returns exit when router has visible physical damage', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one? Are there any lights on your router that look unusual?' },
+      { role: 'user', content: 'all devices are affected, my router fell off the shelf and now it looks cracked and burnt' },
+    ]);
+    expect(result).toBe('exit');
+  });
 });
