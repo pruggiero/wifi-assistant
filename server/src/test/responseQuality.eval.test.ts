@@ -20,6 +20,7 @@ async function getResponse(
   const instruction = buildInstruction(state);
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
+    temperature: 0.3,
     messages: [
       { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
       { role: 'user', content: userMessage },
@@ -32,6 +33,7 @@ async function judge(question: string, response: string): Promise<'yes' | 'no'> 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
+    temperature: 0,
     messages: [
       {
         role: 'user',
@@ -51,6 +53,7 @@ describe('response quality (LLM-as-judge)', () => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
+      temperature: 0.3,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
         { role: 'user', content: 'Yes! My internet is working again, thank you!' },
@@ -66,6 +69,7 @@ describe('response quality (LLM-as-judge)', () => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
+      temperature: 0.3,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
         { role: 'user', content: 'No, still not working after the reboot.' },
@@ -92,6 +96,7 @@ describe('response quality (LLM-as-judge)', () => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
+      temperature: 0.3,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
         { role: 'user', content: 'The internet is working on my laptop now but my phone still cannot connect.' },
@@ -109,6 +114,7 @@ describe('response quality (LLM-as-judge)', () => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
+      temperature: 0.3,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${pendingInstruction}` },
         { role: 'user', content: 'uhh let me check' },
@@ -126,6 +132,7 @@ describe('response quality (LLM-as-judge)', () => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
+      temperature: 0.3,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
         { role: 'user', content: 'ya its working now but is a bit slow' },
@@ -142,6 +149,7 @@ describe('response quality (LLM-as-judge)', () => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
+      temperature: 0.3,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
         { role: 'user', content: "oh wait it's all working again!" },
@@ -179,6 +187,7 @@ describe('response quality (LLM-as-judge)', () => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
+      temperature: 0.3,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
         { role: 'user', content: 'my laptop is working now but my phone still cannot connect' },
@@ -187,7 +196,7 @@ describe('response quality (LLM-as-judge)', () => {
     const response = completion.choices[0].message.content ?? '';
     expect(await judge('Does this response acknowledge progress or partial success?', response)).toBe('yes');
     expect(await judge('Does this response suggest contacting an ISP or technician for the remaining device?', response)).toBe('yes');
-    expect(await judge('Does this response apologize as if nothing worked?', response)).toBe('no');
+    expect(await judge('Does this response describe the reboot as a complete failure or say the troubleshooting did not help at all?', response)).toBe('no');
     expect(await judge('Does this response offer further troubleshooting steps?', response)).toBe('no');
   });
 
@@ -197,6 +206,7 @@ describe('response quality (LLM-as-judge)', () => {
     const instruction = buildInstruction({ phase: 'qualifying', issueType: null, stepIndex: 0 });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
+      temperature: 0.3,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
       ],
