@@ -178,4 +178,25 @@ describe('classifyQualifying (integration)', () => {
     ]);
     expect(result).toBe('exit');
   });
+
+  // "Netflix on all devices" is an app-specific failure, not a general internet failure.
+  // Multiple devices all failing the same app is a service issue, not a router issue — exit.
+  itLive('returns exit when issue is limited to one specific app across all devices', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one?' },
+      { role: 'user', content: "netflix isn't working on any of my devices" },
+    ]);
+    expect(result).toBe('exit');
+  });
+
+  // Same issue at a different physical location = service/ISP outage, not a local router problem.
+  itLive('returns exit when same issue affects a user at a different location', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one?' },
+      { role: 'user', content: "netflix isn't working on any of my devices or my friend's and they live 30 minutes away" },
+    ]);
+    expect(result).toBe('exit');
+  });
 });

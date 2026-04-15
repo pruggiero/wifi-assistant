@@ -4,7 +4,7 @@ import { buildStepGroups } from '../stateEngine/stepGroups';
 
 export const rebootConfig: IssueConfig = {
   qualifying: {
-    classifierDescription: `WiFi is not working across multiple (or all) devices - choose reboot. This is the strongest signal; if the user confirms multiple devices are affected, do not choose continue.`,
+    classifierDescription: `WiFi or general internet access is not working across multiple (or all) devices — choose reboot. This is the strongest signal; if the user confirms multiple devices are affected and the issue is not specific to one application or service, do not choose continue.`,
     routingSignals: [
       'router shows abnormal lights (red, or lights off that are usually on) - choose reboot even if only one device is affected',
       'user made recent network changes (moved the router, added a new device, changed settings) - choose reboot even if only one device is affected',
@@ -13,6 +13,8 @@ export const rebootConfig: IssueConfig = {
     exitCriteria: [
       'the user has directly confirmed other named devices are working AND only one device is affected - e.g. "just my laptop, phone and tablet are fine", "my phone works fine, only the laptop is broken". This applies even if a routing signal is present (recent changes, abnormal lights), because confirmed working other devices outweigh routing signals.',
       'only one device is affected AND no routing signals are present (no abnormal router lights, no recent network changes made by the user) - even if the user has not named other working devices',
+      'the issue is limited to a specific named application or service (e.g. "Netflix isn\'t loading", "a game won\'t connect") — this applies even when multiple devices all fail the same app; multiple devices all unable to access the same named app is more likely a service outage than a router problem',
+      'the same issue is affecting users at a different location or on a different network (e.g. a friend at another address has the same problem) — this indicates a service or ISP outage, not a local router issue',
       'a specific website is down but general internet access is fine',
       'an ISP outage is suspected',
       'the router has visible physical damage (e.g. cracked, dropped, burnt, flooded)',
@@ -20,6 +22,7 @@ export const rebootConfig: IssueConfig = {
     exitClassifierNote: 'For the physical damage criterion only: abnormal router lights (red lights, or lights off that are usually on) do NOT count as physical hardware damage - they indicate a software/connection issue that warrants guided troubleshooting, not an exit. For the single-device-no-signals criterion: router lights that are off or red ARE routing signals and prevent this criterion from applying.',
     suggestedQuestions: [
       'Is the issue affecting all devices, or just one?',
+      'Is it just one specific app or website (like Netflix), or is all internet access affected?',
       'Have you made any recent changes - like moving the router, adding a new device, or changing any settings?',
       'Are any lights on your router showing red, or are any lights off that are usually on?',
     ],
