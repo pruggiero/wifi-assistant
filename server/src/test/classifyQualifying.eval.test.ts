@@ -66,6 +66,18 @@ describe('classifyQualifying (integration)', () => {
     expect(result).toBe('exit');
   });
 
+  // "My internet is out" describes the symptom, not an ISP outage - should route to reboot
+  itLive('returns reboot when user says internet is out on all devices without mentioning an outage', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Can you describe what\'s happening with your WiFi?' },
+      { role: 'user', content: 'my internet is out, not sure what to do' },
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one?' },
+      { role: 'user', content: 'all devices' },
+    ]);
+    expect(result).toBe('reboot');
+  });
+
   // WiFi broken on all devices but ethernet works - still a router-level issue worth rebooting
   itLive('returns reboot when WiFi is down but ethernet works', async () => {
     const classify = await getClassifier();
