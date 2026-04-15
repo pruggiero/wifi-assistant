@@ -10,8 +10,10 @@ async function getClassifier() {
   const OpenAI = (await import('openai')).default;
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const { classifyStepResponse } = await import('../stateEngine/transitions');
-  return (messages: { role: 'user' | 'assistant'; content: string }[], stepMsg: string) =>
-    classifyStepResponse(messages, stepMsg, openai, 'reboot');
+  return (messages: { role: 'user' | 'assistant'; content: string }[], stepMsg: string) => {
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content ?? '';
+    return classifyStepResponse(lastUserMessage, stepMsg, openai, 'reboot');
+  };
 }
 
 const UNPLUG_STEP = 'Please unplug the power cable from both your router and modem.';

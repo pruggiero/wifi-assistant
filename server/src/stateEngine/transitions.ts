@@ -97,12 +97,11 @@ Respond with JSON: { "decision": "${validDecisions}" }`,
 }
 
 async function classifyStepResponse(
-  messages: Message[],
+  lastUserMessage: string,
   currentStepMessage: string,
   openai: OpenAI,
   issueType?: IssueType | null
 ): Promise<'confirm' | 'question' | 'abort'> {
-  const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
   const flowContext = issueType ? issueRegistry[issueType].prompts.questionContext : 'the guided steps';
 
   const completion = await openai.chat.completions.create({
@@ -135,7 +134,7 @@ Respond with JSON: { "decision": "confirm" | "question" | "abort" }`,
     if (parsed.decision === 'abort') return 'abort';
     return 'confirm';
   } catch {
-    return 'confirm';
+    return 'question';
   }
 }
 

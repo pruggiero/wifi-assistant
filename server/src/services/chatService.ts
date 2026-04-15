@@ -74,19 +74,20 @@ async function processGuidedSteps(
   messages: Message[],
   openai: OpenAI
 ): Promise<TurnResult> {
-  const groups = state.issueType ? issueRegistry[state.issueType].steps : [];
-  const group = groups[state.stepIndex];
+  const config = issueRegistry[state.issueType!];
+  const group = config.steps[state.stepIndex];
 
   if (!group) {
     return {
-      instruction: buildInstruction(state),
+      instruction: config.prompts.stepsComplete,
       nextState: { phase: 'resolution', issueType: state.issueType, stepIndex: 0 },
       stripHistory: false,
     };
   }
 
+  const lastUserMessage = messages.filter((m: Message) => m.role === 'user').pop()?.content ?? '';
   const decision = await classifyStepResponse(
-    messages.slice(-CLASSIFIER_MESSAGES),
+    lastUserMessage,
     group.confirmStep.message,
     openai,
     state.issueType
@@ -94,7 +95,7 @@ async function processGuidedSteps(
 
   if (decision === 'question') {
     return {
-      instruction: buildInstruction({ phase: 'flow-question', issueType: state.issueType, stepIndex: state.stepIndex }),
+      instruction: buildInstruction({ phase: 'flow-question', issueType: state.issueType!, stepIndex: state.stepIndex }),
       nextState: state,
       stripHistory: false,
     };
@@ -102,7 +103,7 @@ async function processGuidedSteps(
 
   if (decision === 'abort') {
     return {
-      instruction: buildInstruction({ phase: 'flow-abort', issueType: state.issueType, stepIndex: state.stepIndex }),
+      instruction: buildInstruction({ phase: 'flow-abort', issueType: state.issueType!, stepIndex: state.stepIndex }),
       nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
       stripHistory: false,
     };
@@ -110,16 +111,13 @@ async function processGuidedSteps(
 
   // confirm — advance to next step
   const nextStepIndex = state.stepIndex + 1;
-  const isLastStep = nextStepIndex >= groups.length;
+  const isLastStep = nextStepIndex >= config.steps.length;
   const nextState: ConversationState = isLastStep
     ? { phase: 'resolution', issueType: state.issueType, stepIndex: 0 }
     : { phase: 'guided-steps', issueType: state.issueType, stepIndex: nextStepIndex };
 
   if (isLastStep) {
-    const stepsComplete = state.issueType
-      ? issueRegistry[state.issueType].prompts.stepsComplete
-      : 'The guided steps are complete. Ask the user if their issue is resolved.';
-    return { instruction: stepsComplete, nextState, stripHistory: false };
+    return { instruction: config.prompts.stepsComplete, nextState, stripHistory: false };
   }
 
   return {

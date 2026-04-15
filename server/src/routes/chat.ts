@@ -31,11 +31,7 @@ function isValidState(state: unknown): state is ConversationState {
   return true;
 }
 
-let openai: OpenAI;
-function getOpenAI(): OpenAI {
-  if (!openai) openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  return openai;
-}
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 router.post('/', async (req: Request, res: Response) => {
   const { messages, state: rawState } = req.body as { messages: Message[]; state?: unknown };
@@ -63,9 +59,9 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   try {
-    const { instruction, nextState, stripHistory } = await processTurn(state, sanitizedMessages, getOpenAI());
+    const { instruction, nextState, stripHistory } = await processTurn(state, sanitizedMessages, openai);
 
-    const completion = await getOpenAI().chat.completions.create({
+    const completion = await openai.chat.completions.create({
       ...LLM_CONFIG,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
