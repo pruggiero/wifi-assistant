@@ -42,6 +42,20 @@ describe('classifyQualifying (integration)', () => {
     expect(result).toBe('exit');
   });
 
+  // Single device + no routing signals, other devices not named - exit without requiring explicit confirmation
+  itLive('returns exit when single device affected with no routing signals even without naming other devices', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one?' },
+      { role: 'user', content: 'just one' },
+      { role: 'assistant', content: 'Have you made any recent changes - like moving the router, adding a new device, or changing any settings?' },
+      { role: 'user', content: 'no' },
+      { role: 'assistant', content: 'Are any lights on your router showing red, or are any lights off that are usually on?' },
+      { role: 'user', content: 'looks normal' },
+    ]);
+    expect(result).toBe('exit');
+  });
+
   // Suspected ISP outage - reboot won't help
   itLive('returns exit for suspected ISP outage', async () => {
     const classify = await getClassifier();
