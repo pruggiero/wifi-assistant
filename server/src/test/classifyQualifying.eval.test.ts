@@ -143,4 +143,14 @@ describe('classifyQualifying (integration)', () => {
     ]);
     expect(result).toBe('exit');
   });
+
+  // Multiple devices affected + router lights off — should route to reboot, not exit as hardware damage
+  itLive('returns reboot when multiple devices affected and router lights are off', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Is the issue happening on all devices or just one? Are there any lights on your router that look unusual?' },
+      { role: 'user', content: 'my laptop and phone both have no internet, and the lights on my router are off' },
+    ]);
+    expect(result).toBe('reboot');
+  });
 });

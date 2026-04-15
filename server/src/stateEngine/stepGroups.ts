@@ -88,8 +88,9 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
         'the user has directly confirmed other named devices are working (e.g. "my phone works fine", "tablet connects normally") AND only one device is affected — stating only one device is affected without also confirming others work does NOT meet this criterion; this applies even if the user recently moved the router or made other network changes',
         'a specific website is down but general internet access is fine',
         'an ISP outage is suspected',
-        'physical hardware damage is present',
+        'the router has visible physical damage (e.g. cracked, dropped, burnt, flooded)',
       ],
+      exitClassifierNote: 'For the physical damage criterion only: abnormal router lights (red lights, or lights off that are usually on) do NOT count as physical hardware damage — they indicate a software/connection issue that warrants guided troubleshooting, not an exit.',
       suggestedQuestions: [
         'Is the issue affecting all devices, or just one?',
         'Have you made any recent changes - like moving the router, adding a new device, or changing any settings?',
