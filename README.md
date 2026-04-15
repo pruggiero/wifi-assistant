@@ -75,7 +75,7 @@ State is server-owned. The client sends `conversationState` back with each reque
 - **Backward navigation:** not implemented. The `question` classifier handles the common case - if a user is confused or missed a step, the flow stays on the current step and re-explains. For a physical reboot sequence, going back adds little value.
 - **Linear step flow:** steps advance sequentially. If a future flow needs conditional branching (e.g. "combo unit or separate modem and router?"), `StepGroup` would need `branchOutcomes` and a `nextOnOutcome` map, with the step classifier returning a branch label rather than plain `confirm`.
 - **Qualifying context not carried into the flow:** `ConversationState` only tracks `issueType` and `stepIndex`. Anything learned during qualifying (device type, symptoms, what the user has already tried) lives in message history but not in state. If steps need to vary based on qualifying answers, the options are a `context` bag on `ConversationState` populated by an extraction step, or separate `IssueType` entries per variant.
-- **Registry is compile-time only:** issue types are TypeScript, so adding a new flow requires a code change and redeploy. A config-file or database-backed registry with a schema validator would let non-developers manage flows without touching code.
+- **Registry is compile-time only:** issue types are TypeScript, so adding a new flow requires a code change and redeploy. A config-file or database-backed registry with a schema validator would let non-developers manage flows without touching code. At larger scale (many issue types), a barrel `constants/issueConfigs/index.ts` would reduce the per-issue import noise in `stepGroups.ts` to a single import.
 - **No session persistence:** a server restart resets all conversations. Persisting state would need a session store keyed to the client.
 - **No conversationId:** state is echoed back by the client with no session identifier. If two requests for the same conversation arrived concurrently, last-write-wins. Production would need a `conversationId` on each request and either server-side session storage or an optimistic-lock on state writes.
 - **No streaming:** responses are a single JSON payload. `nextState` is only known after the full completion, so streaming would require content chunks and `nextState` as separate SSE events — e.g. SSE with a `delta` event per token and a final `state` event.
@@ -107,7 +107,7 @@ cd server && npm run test:eval
 
 ## Adding an Issue Type
 
-**Three files to change - nothing else:**
+**Four files to change - nothing else:**
 
 **1. `server/src/stateEngine/types.ts`** - extend the union:
 ```ts
@@ -125,38 +125,27 @@ export const newIssueSteps: Step[] = [
 ```
 Steps with `waitForUser: false` are shown automatically and bundled with the next confirmation step so the user is not prompted after every action.
 
-**3. `server/src/stateEngine/stepGroups.ts`** - add an entry to `issueRegistry`:
+**3. `server/src/constants/newIssueConfig.ts`** - define the qualifying config and prompts (see `rebootConfig.ts` as a reference):
 ```ts
-import { newIssueSteps } from '../constants/newIssueSteps';
+import { newIssueSteps } from './newIssueSteps';
+import { IssueConfig, buildStepGroups } from '../stateEngine/stepGroups';
 
-// in issueRegistry:
-newIssue: {
-  qualifying: {
-    classifierDescription: 'One sentence: when should the classifier choose this issue type over others.',
-    routingSignals: [
-      'condition sufficient to route here even without multi-device confirmation, e.g. "router shows abnormal lights"',
-    ],
-    exitCriteria: [
-      'one standalone condition per entry, e.g. "only one device is affected and others confirmed working"',
-      'another condition under which guided troubleshooting should be skipped',
-    ],
-    suggestedQuestions: [
-      'A diagnostic question relevant to this issue type.',
-      'Another question covering a different angle.',
-    ],
-  },
+export const newIssueConfig: IssueConfig = {
+  qualifying: { ... },
   steps: buildStepGroups(newIssueSteps),
-  prompts: {
-    start: 'Qualifying is done and this flow is the right next step. Tell the user what you are about to do and ask them to confirm before you begin.',
-    questionContext: 'short phrase for mid-step context, e.g. "a router reboot"',
-    abort: 'The user wants to stop. Acknowledge warmly and close.',
-    stepsComplete: 'All steps are done. Ask the user if their issue is resolved.',
-    resolution: 'This is your final message. [Describe the outcome]. If resolved: congratulate and close. If not: apologize and suggest contacting their ISP or a technician. Do NOT ask follow-up questions.',
-  },
-},
+  prompts: { ... },
+};
 ```
 
-A few things to keep in mind when writing the prompts for a new entry:
+**4. `server/src/stateEngine/stepGroups.ts`** - add an entry to `issueRegistry`:
+```ts
+import { newIssueConfig } from '../constants/newIssueConfig';
+
+// in issueRegistry:
+newIssue: newIssueConfig,
+```
+
+A few things to keep in mind when writing the config for a new entry:
 
 - **`classifierDescription`** - one specific "when to choose this" sentence. The model picks between labels, so ambiguity between two similar descriptions causes misroutes. If your new issue is conceptually close to an existing one, sharpen both descriptions until the distinction is clear.
 - **`routingSignals`** - optional list of conditions that are sufficient to route here even without multi-device confirmation. Each is a short fragment (e.g. `'router shows abnormal lights'`). The classifier renders them as "Also choose X when: ..." lines. Keeps issue-specific routing logic inside the registry rather than hardcoded in the classifier.
