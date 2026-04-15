@@ -33,9 +33,7 @@ async function classifyExit(messages: Message[], openai: OpenAI): Promise<boolea
 Reply YES only if any of the following are clearly true:
 ${conditionList}
 
-IMPORTANT — always reply NO (do not skip) if:
-- The user reports router hardware symptoms (red lights, lights off that are usually on)
-- Even if only one device is affected, router symptoms warrant guided steps
+IMPORTANT — only reply NO (do not skip) if the user explicitly reports router hardware symptoms such as red lights, or lights that are usually on being off. Recent activity like moving the router, adding a new device, or changing settings is NOT a hardware symptom and does not affect this decision.
 
 Reply NO if none of the above exit criteria clearly apply, or if the situation is ambiguous.
 
