@@ -190,4 +190,20 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response apologize as if nothing worked?', response)).toBe('no');
     expect(await judge('Does this response offer further troubleshooting steps?', response)).toBe('no');
   });
+
+  // Opening turn: bot should greet and ask one general question
+  itLive('opening message includes a greeting before asking a question', async () => {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const instruction = buildInstruction({ phase: 'qualifying', issueType: null, stepIndex: 0 });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response include a greeting or welcoming phrase before asking a question?', response)).toBe('yes');
+    expect(await judge('Does this response ask only one question?', response)).toBe('yes');
+    expect(await judge('Does this response mention rebooting, restarting, router lights, or any specific troubleshooting step?', response)).toBe('no');
+  });
 });
