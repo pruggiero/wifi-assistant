@@ -6,37 +6,33 @@ import { QualifyingFacts } from '../stateEngine/qualifyingFacts';
 export const rebootConfig: IssueConfig = {
   qualifying: {
     route(facts: QualifyingFacts) {
-      // Hard exits — router reboot will not help these
+      // Hard exits - reboot won't help these
       if (facts.physicalDamage) return 'exit';
       if (facts.appSpecific) return 'exit';
       if (facts.ispOutageSuspected || facts.crossLocationAffected) return 'exit';
 
-      // Other devices confirmed working → device-specific issue, not the router.
-      // Overrides routing signals — a recent change doesn't matter if everything else on the network is fine.
+      // Other devices working fine - device-specific problem, not the router
       if (facts.devicesAffected === 'single' && facts.otherDevicesUnaffected) return 'exit';
 
-      // Router signals → reboot, regardless of device count
+      // Router signals - reboot regardless of device count
       if (facts.routerLightsStatus === 'abnormal' || facts.recentNetworkChanges === 'yes') return 'reboot';
 
-      // Multiple devices, no exit signal → reboot
+      // Multiple devices affected, no exit signal - reboot
       if (facts.devicesAffected === 'multiple') return 'reboot';
 
-      // Single device, no routing signals yet
+      // Single device
       if (facts.devicesAffected === 'single') {
         if (facts.onlyDevice) {
-          // No other devices to compare against, so we can't conclude it's device-specific.
-          // If general internet is confirmed broken (user explicitly said multiple things are affected),
-          // there's no value in asking more questions — reboot now.
+          // Can't confirm it's device-specific with no other devices to compare.
+          // Skip router questions if general connectivity is already confirmed broken.
           if (facts.generalConnectivityConfirmed) return 'reboot';
-          // Otherwise ask router questions first; once we have answers, try a reboot.
           if (facts.routerLightsStatus === 'unknown' || facts.recentNetworkChanges === 'unknown') return 'continue';
           return 'reboot';
         }
-        if (facts.routerLightsStatus === 'unknown' || facts.recentNetworkChanges === 'unknown') return 'continue';  // still need to ask
-        return 'exit';  // single device, signals explicitly absent → device problem
+        if (facts.routerLightsStatus === 'unknown' || facts.recentNetworkChanges === 'unknown') return 'continue';
+        return 'exit'; // single device, no router signals - likely a device problem
       }
 
-      // Device count not yet established — keep qualifying
       return 'continue';
     },
     suggestedQuestions: [

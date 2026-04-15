@@ -2,26 +2,25 @@ import OpenAI from 'openai';
 import { Message } from './types';
 
 export interface QualifyingFacts {
-  /** 'single' — one device affected; 'multiple' — more than one; 'unknown' — not yet established */
+  /** 'single' - one device affected; 'multiple' - more than one; 'unknown' - not yet established */
   devicesAffected: 'single' | 'multiple' | 'unknown';
-  /** User said they only own one device (no other device to compare with) */
+  /** User said they only own one device */
   onlyDevice: boolean;
-  /** User explicitly named other devices that are working fine */
+  /** User explicitly named another device and confirmed it is working fine */
   otherDevicesUnaffected: boolean;
-  /** Only a specific app fails while general internet still works — requires explicit confirmation */
+  /** One specific app is broken AND user confirmed general internet still works */
   appSpecific: boolean;
-  /** 'abnormal' — red lights or lights off that are usually on; 'normal' — user said lights look normal;
-   *  'unknown' — router lights have not been discussed */
+  /** 'abnormal' - red/off lights; 'normal' - user said lights look fine; 'unknown' - not mentioned */
   routerLightsStatus: 'abnormal' | 'normal' | 'unknown';
-  /** 'yes' — user made recent changes; 'no' — user said no recent changes; 'unknown' — not yet discussed */
+  /** 'yes' - user made recent changes; 'no' - user said no changes; 'unknown' - not discussed */
   recentNetworkChanges: 'yes' | 'no' | 'unknown';
-  /** Router has visible physical damage (cracked, dropped, burnt, flooded) */
+  /** Visible physical damage to the router (cracked, dropped, burnt, flooded) */
   physicalDamage: boolean;
-  /** User suspects or mentions an ISP outage */
+  /** User explicitly mentioned an outage or that someone on a different connection has the same problem */
   ispOutageSuspected: boolean;
-  /** Same issue reported at a different physical address or on a different network */
+  /** Same issue reported at a different physical location or network */
   crossLocationAffected: boolean;
-  /** User explicitly confirmed that general internet access is affected — not just one app or game */
+  /** User explicitly said multiple apps/websites are affected - not just one service */
   generalConnectivityConfirmed: boolean;
 }
 
