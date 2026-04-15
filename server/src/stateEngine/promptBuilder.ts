@@ -39,7 +39,7 @@ export function buildInstruction(state: InstructionState): string {
       } else {
         reminder = `"${group.confirmStep.message}"`;
       }
-      return `The user has asked a question while being guided through ${context}. Answer their question concisely. Then remind them they still need to complete ${reminder}. Ask them to confirm when they have done so. Do NOT mention or preview any future steps.`;
+      return `The user has asked a question or made a comment while being guided through ${context}. Respond warmly and briefly. Then explicitly restate that they still need to complete ${reminder} before you can continue — make it clear the step is not yet done. Ask them to confirm once they have completed it. Do NOT mention or preview any future steps.`;
     }
 
     case 'flow-abort': {

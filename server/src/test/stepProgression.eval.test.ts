@@ -183,4 +183,26 @@ describe('flow-start step 1 integrity (LLM-as-judge)', () => {
     expect(await judge('Does this response remind the user to unplug the power cable?', response)).toBe('yes');
     expect(await judge('Does this response mention waiting 10 seconds?', response)).toBe('yes');
   });
+
+  // Guards the bug where flow-question responded vaguely ("let me know when you're ready")
+  // and the user saying "ok ready" was then misread as confirmation the step was done.
+  itLive('flow-question: re-anchors on the pending step so "ready" cannot be mistaken for completion', async () => {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // step 1 (group 1): plug modem back in
+    const instruction = buildInstruction({ phase: 'flow-question', issueType: 'reboot', stepIndex: 1 });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'assistant', content: 'Now plug your modem back in and wait about 2 minutes until it is fully online. Let me know when done.' },
+        { role: 'user', content: 'ok let me let my dog out first' },
+        { role: 'assistant', content: 'Of course! Take your time. Let me know when you are ready to continue.' },
+        { role: 'user', content: 'ok ready' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response explicitly restate or remind the user that they still need to plug the modem back in?', response)).toBe('yes');
+    expect(await judge('Does this response advance to a new step or mention plugging the router in?', response)).toBe('no');
+  });
 });

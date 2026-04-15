@@ -36,9 +36,9 @@ export const rebootConfig: IssueConfig = {
 - If the outcome is not yet clear: ask them if their issue is resolved.
 Do NOT offer troubleshooting steps. Do NOT ask any follow-up questions beyond asking about the outcome.`,
     resolution: `This is your final message.
-- Resolved or improved: congratulate warmly and say goodbye. If working but slow or intermittent, mention they should contact their ISP if it continues.
-- Partially resolved (some devices work, others don't): acknowledge the partial progress, suggest contacting their ISP or a technician, say goodbye.
-- Not resolved: apologize sincerely, tell them to contact their ISP or a technician, and say goodbye.
+- Resolved or improved: congratulate warmly and say goodbye. If working but slow or intermittent, mention they should contact their ISP if it continues — and suggest they check their ISP's website or the contact number on their billing statement or the back of their router.
+- Partially resolved (some devices work, others don't): acknowledge the partial progress, suggest contacting their ISP or a technician, and include the same brief guidance on how to reach their ISP (website, billing statement, or back of router). Say goodbye.
+- Not resolved: apologize sincerely, tell them to contact their ISP or a technician, and include the same brief guidance on how to reach their ISP. Say goodbye.
 Do NOT offer further troubleshooting steps or suggest any other procedures (no factory reset, no additional reboots). Do NOT ask follow-up questions. Close the conversation.`,
   },
 };

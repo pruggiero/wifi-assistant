@@ -206,4 +206,22 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response ask only one question?', response)).toBe('yes');
     expect(await judge('Does this response mention rebooting, restarting, router lights, or any specific troubleshooting step?', response)).toBe('no');
   });
+
+  // Guards the case where resolution tells user to contact ISP without saying how,
+  // leaving an obvious follow-up question that the closed conversation can't answer.
+  itLive('resolution includes ISP contact guidance when issue is not fully resolved', async () => {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const instruction = 'The user has confirmed their issue is fully resolved. ' + issueRegistry['reboot'].prompts.resolution;
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: 'looks like its working but netflix is a bit slow' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response suggest contacting the ISP if the speed issue continues?', response)).toBe('yes');
+    expect(await judge('Does this response include guidance on how to contact their ISP, such as mentioning their website, billing statement, or the back of the router?', response)).toBe('yes');
+    expect(await judge('Does this response ask a follow-up question?', response)).toBe('no');
+  });
 });
