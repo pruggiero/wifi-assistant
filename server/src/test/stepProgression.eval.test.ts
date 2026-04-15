@@ -152,7 +152,7 @@ describe('flow-start step 1 integrity (LLM-as-judge)', () => {
     ]);
     expect(await judge('Does this response ask the user to unplug the power cable from both the router and modem?', response)).toBe('yes');
     expect(await judge('Does this response ask the user to wait 10 seconds or plug anything back in?', response)).toBe('no');
-  }, 30000);
+  });
 
   // No prior context - clean start
   itLive('flow-start: presents unplug step with no prior context', async () => {
@@ -161,5 +161,5 @@ describe('flow-start step 1 integrity (LLM-as-judge)', () => {
     ]);
     expect(await judge('Does this response ask the user to unplug the power cable from both the router and modem?', response)).toBe('yes');
     expect(await judge('Does this response ask the user to wait 10 seconds or plug anything back in?', response)).toBe('no');
-  }, 30000);
+  });
 });

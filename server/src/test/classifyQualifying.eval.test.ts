@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 // These use the real OpenAI API and are skipped unless OPENAI_API_KEY is set.
 // They capture the actual message sequences from manual testing (see screenshots).
 //
-// Run with: OPENAI_API_KEY=sk-... npx vitest run src/test/classifyQualifying.eval.ts
+// Run with: OPENAI_API_KEY=sk-... npx vitest run "src/test/classifyQualifying"
 
 const hasKey = !!process.env.OPENAI_API_KEY;
 const itLive = hasKey ? it : it.skip;

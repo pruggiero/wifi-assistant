@@ -17,7 +17,7 @@ async function getClassifier() {
 const UNPLUG_STEP = 'Please unplug the power cable from both your router and modem.';
 const MODEM_STEP = 'Now plug your modem back in and wait about 2 minutes until it is fully online.';
 
-describe('classifyRebootResponse (integration)', () => {
+describe('classifyStepResponse (integration)', () => {
   itLive('returns confirm for "done"', async () => {
     const classify = await getClassifier();
     const result = await classify(

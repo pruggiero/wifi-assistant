@@ -47,7 +47,7 @@ describe('response quality (LLM-as-judge)', () => {
   // Guards the bug where resolution phase kept asking follow-up questions
   itLive('resolution phase closes conversation when issue is resolved', async () => {
     const response = await getResponse(
-      { phase: 'resolution', issueType: null, stepIndex: 0 },
+      { phase: 'resolution', issueType: 'reboot', stepIndex: 0 },
       'Yes! My internet is working again, thank you!'
     );
     expect(await judge('Does this response close the conversation without asking any follow-up questions?', response)).toBe('yes');
@@ -56,7 +56,7 @@ describe('response quality (LLM-as-judge)', () => {
 
   itLive('resolution phase suggests ISP or technician when issue is unresolved', async () => {
     const response = await getResponse(
-      { phase: 'resolution', issueType: null, stepIndex: 0 },
+      { phase: 'resolution', issueType: 'reboot', stepIndex: 0 },
       'No, still not working after the reboot.'
     );
     expect(await judge('Does this response suggest contacting an ISP or technician?', response)).toBe('yes');

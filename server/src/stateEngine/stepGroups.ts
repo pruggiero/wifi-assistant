@@ -79,6 +79,7 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
       routingSignals: [
         'router shows abnormal lights (red, or lights off that are usually on) - choose reboot even if only one device is affected',
         'user made recent network changes (moved the router, added a new device, changed settings) - choose reboot even if only one device is affected',
+        'user has already attempted a reboot at home but the issue persists - still choose reboot to guide them through the proper procedure',
       ],
       exitCriteria: [
         'the user has explicitly confirmed that other devices (e.g. phone, tablet, another laptop) are working fine and only one device is affected',
