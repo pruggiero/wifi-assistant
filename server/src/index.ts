@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
-import { app } from './app';
-
 dotenv.config({ path: '../.env' });
+
+import { app } from './app';
 
 if (!process.env.OPENAI_API_KEY) {
   console.error('ERROR: OPENAI_API_KEY is not set. Copy .env.example to .env and add your key.');
