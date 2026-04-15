@@ -121,7 +121,7 @@ Their response was: "${lastUserMessage}"
 Classify their response:
 - confirm: they completed the step they were asked to perform and are ready to continue
 - question: they are asking for clarification, made a mistake, or need help with the current step
-- abort: they want to explicitly quit or cancel the process entirely (e.g. "stop", "cancel", "nevermind", "I don't want to do this"). Do NOT choose abort for temporary pauses — "brb", "hold on", "one sec", "be right back", "need to step away" are question, not abort.
+- abort: they want to explicitly quit or cancel the process entirely (e.g. "stop", "cancel", "nevermind", "I don't want to do this anymore"). Do NOT choose abort for temporary pauses or distractions — ANY message where the user is stepping away briefly, going to do something else, or just needs a moment (e.g. "hold on", "brb", "one sec", "be right back", "need to use the washroom", "going to let my dog out", "just a minute") must be classified as question, never abort. Only choose abort if the user is clearly ending the session permanently.
 - resolved: the issue has resolved on its own without them completing the step (e.g. "oh it's working now", "nevermind it's all working again")
 
 Respond with JSON: { "decision": "confirm" | "question" | "abort" | "resolved" }`,

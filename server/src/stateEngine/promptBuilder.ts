@@ -39,7 +39,7 @@ export function buildInstruction(state: InstructionState): string {
       } else {
         reminder = `"${group.confirmStep.message}"`;
       }
-      return `The user has asked a question or made a comment while being guided through ${context}. Respond warmly and briefly. Then explicitly restate that they still need to complete ${reminder} before you can continue — make it clear the step is not yet done. Ask them to confirm once they have completed it. Do NOT use vague phrases like "let me know when you're ready" or "take your time and let me know" — always name the specific action they still need to do. Do NOT mention or preview any future steps.`;
+      return `The user has asked a question or made a comment while being guided through ${context}. Respond warmly and briefly. Then explicitly restate that they still need to complete ${reminder} before you can continue — make it clear the step is not yet done. Ask them to confirm once they have completed it. Do NOT use vague phrases like "let me know when you're ready" or "take your time and let me know" — always name the specific action they still need to do. Do NOT mention, preview, or hint at any future steps — only the current pending step.`;
     }
 
     case 'flow-abort': {
