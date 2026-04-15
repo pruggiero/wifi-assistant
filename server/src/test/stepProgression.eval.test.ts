@@ -46,10 +46,9 @@ async function judge(question: string, response: string): Promise<'yes' | 'no'> 
 }
 
 // Step index map (0-based groups after buildStepGroups):
-// Group 0: step 1 (unplug both auto) + step 2 (wait 10s) - confirm
-// Group 1: step 3 (plug modem back in) - confirm
-// Group 2: step 4 (plug router back in) - confirm
-// Group 3: step 5 (wait for power light auto) + step 6 (try connecting) - confirm
+// Group 0: unplug both (non-wait) + wait 10s (wait) - confirm on wait
+// Group 1: plug modem back in (wait) - confirm
+// Group 2: plug router back in (non-wait) + wait for light / try connecting (wait) - confirm
 
 describe('step progression (LLM-as-judge)', () => {
 
@@ -92,20 +91,13 @@ describe('step progression (LLM-as-judge)', () => {
     expect(await judge('Does this response mention waiting 30 seconds?', response)).toBe('no');
   });
 
-  // Step 2 - group 2: plug router back in
-  itLive('step 2: asks user to plug router back in', async () => {
+  // Step 2 - group 2: plug router back in + wait for power light + try connecting (bundled)
+  // Plug router is non-waiting, so it merges with the next waiting step into one group.
+  itLive('step 2: presents plug-router and wait-then-connect together', async () => {
     const response = await getResponse(2, [
       { role: 'user', content: 'modem is back on and online' },
     ]);
     expect(await judge('Does this response ask the user to plug the router back in?', response)).toBe('yes');
-    expect(await judge('Does this response tell the user to try connecting to the internet yet?', response)).toBe('no');
-  });
-
-  // Step 3 - group 3: conditional blinking wait + try connecting (now a single merged step)
-  itLive('step 3: tells user to wait until power light stops blinking before trying to connect', async () => {
-    const response = await getResponse(3, [
-      { role: 'user', content: 'router is back in' },
-    ]);
     expect(await judge("Does this response mention the router's power light or blinking lights?", response)).toBe('yes');
     expect(await judge('Does this response ask the user to try connecting to the internet?', response)).toBe('yes');
   });
@@ -116,7 +108,7 @@ describe('step progression (LLM-as-judge)', () => {
   // to try connecting, not left waiting for something that already happened.
   itLive('flow-question step 3: directs user to try connecting when lights are solid', async () => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const instruction = buildInstruction({ phase: 'flow-question', issueType: 'reboot', stepIndex: 3 });
+    const instruction = buildInstruction({ phase: 'flow-question', issueType: 'reboot', stepIndex: 2 });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       temperature: 0.3,

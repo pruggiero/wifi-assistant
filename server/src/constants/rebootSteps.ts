@@ -15,7 +15,7 @@ export const rebootSteps: Step[] = [
   },
   {
     message: 'Next, plug your router back in.',
-    waitForUser: true,
+    waitForUser: false,
   },
   {
     message: 'If the router\'s power light is still blinking, wait until it stops. Then wait about 2 minutes before trying to connect. Try connecting to the internet again. Let me know if it works.',
