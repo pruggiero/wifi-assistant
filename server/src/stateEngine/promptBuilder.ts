@@ -12,14 +12,15 @@ export function buildInstruction(state: InstructionState): string {
       const config = state.issueType ? issueRegistry[state.issueType] : null;
       const firstGroup = config?.steps[0];
       const startPrompt = config?.prompts.start ?? `The qualifying questions are complete. Tell the user you are going to walk them through the next steps.`;
+      const opener = `Do NOT open with "Great!" or any similar affirmation — the user has a problem, not good news. `;
       if (firstGroup) {
         if (firstGroup.presentSteps.length > 1) {
           const stepLines = firstGroup.presentSteps.map((s, i) => `${i + 1}. ${s.message}`).join('\n');
-          return `${startPrompt}\n\nPresent these first steps verbatim as a numbered list:\n${stepLines}\nAsk the user to confirm when they have completed all of these steps.`;
+          return `${opener}${startPrompt}\n\nPresent these first steps verbatim as a numbered list:\n${stepLines}\nAsk the user to confirm when they have completed all of these steps.`;
         }
-        return `${startPrompt}\n\nPresent this first step verbatim: "${firstGroup.confirmStep.message}". Ask the user to confirm when they have completed it.`;
+        return `${opener}${startPrompt}\n\nPresent this first step verbatim: "${firstGroup.confirmStep.message}". Ask the user to confirm when they have completed it.`;
       }
-      return startPrompt;
+      return `${opener}${startPrompt}`;
     }
 
     case 'flow-question': {
@@ -54,12 +55,13 @@ export function buildInstruction(state: InstructionState): string {
       const group = groups[state.stepIndex];
       if (!group) return config?.prompts.stepsComplete ?? 'The guided steps are complete. Ask the user if their issue is resolved.';
 
+      const noAffirmation = `Do NOT open with "Great!", "Perfect!", or any similar affirmation. `;
       if (group.presentSteps.length > 1) {
         const stepLines = group.presentSteps.map((s, i) => `${i + 1}. ${s.message}`).join('\n');
-        return `The user has completed the previous step. Present ONLY these steps verbatim as a numbered list:\n${stepLines}\nAsk the user to confirm when they have completed all of these steps before continuing.`;
+        return `${noAffirmation}The user has completed the previous step. Present ONLY these steps verbatim as a numbered list:\n${stepLines}\nAsk the user to confirm when they have completed all of these steps before continuing.`;
       }
 
-      return `The user has completed the previous step. Present ONLY this step verbatim: "${group.confirmStep.message}". Ask the user to confirm when they have completed it before continuing.`;
+      return `${noAffirmation}The user has completed the previous step. Present ONLY this step verbatim: "${group.confirmStep.message}". Ask the user to confirm when they have completed it before continuing.`;
     }
 
     case 'resolution': {

@@ -157,9 +157,9 @@ async function classifyResolution(
         role: 'user',
         content: `Based on the user's most recent message, have they confirmed whether their WiFi issue is resolved?
 
-- resolved: user confirms the issue is fixed or working
+- resolved: user confirms the issue is fixed or working. Short affirmatives ("done", "yes", "ok", "yep", "working", "all good", "looks good") immediately following a direct resolution question should be treated as resolved.
 - unresolved: user confirms the issue is still not working
-- pending: user is still checking, gave an ambiguous response, or has not yet confirmed either way
+- pending: user explicitly says they are still checking (e.g. "hold on", "let me try", "checking now"), or has clearly not yet confirmed either way
 
 Respond with JSON: { "decision": "resolved" | "unresolved" | "pending" }`,
       },
