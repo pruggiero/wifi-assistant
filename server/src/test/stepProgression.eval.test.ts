@@ -204,5 +204,6 @@ describe('flow-start step 1 integrity (LLM-as-judge)', () => {
     const response = completion.choices[0].message.content ?? '';
     expect(await judge('Does this response explicitly restate or remind the user that they still need to plug the modem back in?', response)).toBe('yes');
     expect(await judge('Does this response advance to a new step or mention plugging the router in?', response)).toBe('no');
+    expect(await judge('Does this response use a vague phrase like "let me know when you\'re ready" without naming the specific action?', response)).toBe('no');
   });
 });
