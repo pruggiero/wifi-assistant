@@ -2,7 +2,7 @@
 
 // Integration tests for classifyQualifying.
 // These use the real OpenAI API and are skipped unless OPENAI_API_KEY is set.
-// They capture the actual message sequences from manual testing (see screenshots).
+// They capture the actual message sequences from manual testing.
 //
 // Run with: OPENAI_API_KEY=sk-... npx vitest run "src/test/classifyQualifying"
 
