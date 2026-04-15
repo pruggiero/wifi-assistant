@@ -7,6 +7,7 @@ export function Chat() {
   const { messages, isLoading, error, sendMessage, conversationState } = useChat();
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const isClosed = conversationState.phase === 'closed';
 
   const handleSend = () => {
@@ -17,6 +18,10 @@ export function Chat() {
   useEffect(() => {
     if (!isLoading && !isClosed) inputRef.current?.focus();
   }, [isLoading, isClosed]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') handleSend();
@@ -38,6 +43,7 @@ export function Chat() {
         {isLoading && <p className="chat-status">Thinking...</p>}
         {error && <p className="chat-error">{error}</p>}
         {isClosed && <p className="chat-status chat-status--closed">This conversation has ended.</p>}
+        <div ref={messagesEndRef} />
       </div>
 
       <div className="chat-input-row">

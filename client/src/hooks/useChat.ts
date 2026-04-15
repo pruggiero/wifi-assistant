@@ -28,6 +28,7 @@ export function useChat() {
       setMessages([...updated, { role: 'assistant', content: data.message.content }]);
       setConversationState(data.nextState);
     } catch (err) {
+      setMessages(messages); // revert optimistic user message on failure
       setError(err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
       setIsLoading(false);
