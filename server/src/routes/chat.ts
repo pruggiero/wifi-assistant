@@ -28,6 +28,7 @@ function isValidState(state: unknown): state is ConversationState {
     if (!issueType) return false;
     if (s.stepIndex >= issueRegistry[issueType as IssueType].steps.length) return false;
   }
+  if (s.phase === 'resolution' && !issueType) return false;
   return true;
 }
 

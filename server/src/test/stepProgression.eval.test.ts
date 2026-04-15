@@ -109,8 +109,6 @@ describe('step progression (LLM-as-judge)', () => {
     expect(await judge('Does this response ask the user to try connecting to the internet?', response)).toBe('yes');
   });
 
-  // Timing verbatim check moved to step 0 above
-
   // Correction handling: user says they misread, roll back
   itLive('step 0: handles user correction gracefully and stays on unplug step', async () => {
     const response = await getResponse(0, [
