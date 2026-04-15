@@ -3,6 +3,7 @@ export type IssueType = 'reboot'; // extend this union to add new issue types
 export interface Message {
   role: 'user' | 'assistant';
   content: string;
+  timestamp?: string;
 }
 
 export interface ConversationState {

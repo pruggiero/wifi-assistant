@@ -32,12 +32,15 @@ export function Chat() {
       <div className="chat-messages">
         {messages.map((msg, i) => (
           <div key={`${msg.role}-${i}`} className={`chat-message chat-message--${msg.role}`}>
-            <span className={`chat-bubble chat-bubble--${msg.role}`}>
-              {msg.role === 'assistant'
-                ? <ReactMarkdown>{msg.content}</ReactMarkdown>
-                : msg.content
-              }
-            </span>
+            <div className={`chat-message-column chat-message-column--${msg.role}`}>
+              <span className={`chat-bubble chat-bubble--${msg.role}`}>
+                {msg.role === 'assistant'
+                  ? <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  : msg.content
+                }
+              </span>
+              {msg.timestamp && <span className="chat-timestamp">{msg.timestamp}</span>}
+            </div>
           </div>
         ))}
         {isLoading && <p className="chat-status">Thinking...</p>}

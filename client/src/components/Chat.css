@@ -21,7 +21,6 @@
   display: inline-block;
   padding: 10px 14px;
   border-radius: 12px;
-  max-width: 80%;
 }
 
 .chat-bubble--user {
@@ -51,6 +50,31 @@
 .chat-bubble--assistant h3 {
   margin: 8px 0 4px 0;
   font-size: 15px;
+}
+
+.chat-message-column {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+}
+
+.chat-message-column--user {
+  align-items: flex-end;
+}
+
+.chat-message-column--assistant {
+  align-items: flex-start;
+}
+
+.chat-bubble {
+  max-width: 100%;
+}
+
+.chat-timestamp {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 3px;
+  padding: 0 2px;
 }
 
 .chat-status {
