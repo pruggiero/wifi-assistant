@@ -118,7 +118,9 @@ async function processGuidedSteps(
   if (isLastStep) {
     // Use a simple ask-only prompt here — stepsComplete may generate a goodbye,
     // but the next state is `resolution`, not `closed`. The resolution phase handles closing.
-    return { instruction: `All steps are complete. Ask the user warmly if their WiFi issue is now resolved. Do NOT say goodbye. Do NOT offer further troubleshooting steps.`, nextState, stripHistory: false };
+    // Explicitly tell the model not to declare resolution — the user completing a step is not
+    // the same as confirming their issue is resolved.
+    return { instruction: `The user has just completed the final step. Do NOT declare the issue resolved based on this alone — completing the steps is not the same as confirming the issue is fixed. Always ask them directly: "Is your WiFi issue now resolved?" Do NOT say goodbye. Do NOT offer further troubleshooting steps.`, nextState, stripHistory: false };
   }
 
   return {

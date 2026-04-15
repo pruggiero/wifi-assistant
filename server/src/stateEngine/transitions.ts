@@ -159,7 +159,7 @@ async function classifyResolution(
         content: `Based on the user's most recent message, have they confirmed whether their WiFi issue is resolved?
 
 - resolved: user confirms their issue is fixed — including implicit confirmations where their actions show the internet is working (e.g. "I can browse now", "I see cats now", "it loaded"). Short affirmative replies immediately following a direct resolution question (e.g. "yes", "yep", "done", "looks good") should be treated as resolved.
-- partial: the issue is better but not fully resolved — use this for degraded-but-working states too (e.g. some things work but not everything, connected but slow, working but intermittent)
+- partial: the issue is better but not fully resolved — use this for degraded-but-working states too (e.g. some devices work while others don't, some things work but not everything, connected but slow, working but intermittent). If ANYTHING is working (even just one device), classify as partial rather than unresolved.
 - unresolved: user confirms the issue is still not fixed
 - pending: user explicitly says they are still checking (e.g. "hold on", "let me try", "checking now"), or has clearly not yet confirmed either way
 - question: user is asking a follow-up question without confirming the outcome at all (e.g. "why did this happen?", "what should I do if it happens again?"). Do NOT use this if the user has already described whether it is working or not.

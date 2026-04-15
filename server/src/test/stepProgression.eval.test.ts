@@ -101,13 +101,33 @@ describe('step progression (LLM-as-judge)', () => {
     expect(await judge('Does this response tell the user to try connecting to the internet yet?', response)).toBe('no');
   });
 
-  // Step 3 - group 3: wait for power light + try connecting
+  // Step 3 - group 3: conditional blinking wait + try connecting (now a single merged step)
   itLive('step 3: tells user to wait until power light stops blinking before trying to connect', async () => {
     const response = await getResponse(3, [
       { role: 'user', content: 'router is back in' },
     ]);
-    expect(await judge("Does this response tell the user to wait until the router's power light stops blinking?", response)).toBe('yes');
+    expect(await judge("Does this response mention the router's power light or blinking lights?", response)).toBe('yes');
     expect(await judge('Does this response ask the user to try connecting to the internet?', response)).toBe('yes');
+  });
+
+  // Guards the bug where flow-question for group 3 re-presented the blinking wait
+  // even after the user confirmed lights are already solid (not blinking).
+  // Now that group 3 uses a single conditional step, the model can skip the blinking part naturally.
+  itLive('flow-question step 3: skips blinking sub-step when user confirms lights are solid', async () => {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const instruction = buildInstruction({ phase: 'flow-question', issueType: 'reboot', stepIndex: 3 });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'assistant', content: "If the router's power light is still blinking, wait until it stops. Then try connecting to the internet again. Let me know if it works." },
+        { role: 'user', content: 'the lights are solid, not blinking' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response ask the user to try connecting to the internet?', response)).toBe('yes');
+    expect(await judge('Does this response tell the user to wait for the lights to stop blinking?', response)).toBe('no');
   });
 
   // Correction handling: user says they misread, roll back

@@ -18,11 +18,7 @@ export const rebootSteps: Step[] = [
     waitForUser: true,
   },
   {
-    message: "Wait until the router's power light stops blinking (about 2 minutes).",
-    waitForUser: false,
-  },
-  {
-    message: 'Try connecting to the internet again. Let me know if it works.',
+    message: 'If the router\'s power light is still blinking, wait until it stops. Then try connecting to the internet again. Let me know if it works.',
     waitForUser: true,
   },
 ];

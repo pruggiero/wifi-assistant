@@ -270,6 +270,43 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response ask if the WiFi issue is now resolved?', response)).toBe('yes');
   });
 
+  // Guards the bug where the last-step instruction declared resolution instead of asking.
+  // "its working" is a strong positive signal — the model must still ask, not declare.
+  itLive('last step completion asks rather than declares when user says "its working"', async () => {
+    const instruction = `The user has just completed the final step. Do NOT declare the issue resolved based on this alone — completing the steps is not the same as confirming the issue is fixed. Always ask them directly: "Is your WiFi issue now resolved?" Do NOT say goodbye. Do NOT offer further troubleshooting steps.`;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: "its working" },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response ask the user if their WiFi issue is resolved?', response)).toBe('yes');
+    expect(await judge('Does this response declare the issue resolved without asking (e.g. "I\'m glad it\'s resolved" as a statement rather than a question)?', response)).toBe('no');
+    expect(await judge('Does this response say goodbye or close the conversation?', response)).toBe('no');
+  });
+
+  // Guards the bug where the resolution close mentioned ISP even for a fully resolved case.
+  itLive('resolution close for fully resolved does not mention ISP contact', async () => {
+    const issueConfig = issueRegistry['reboot'];
+    const instruction = 'The user has confirmed their issue is fully resolved. ' + issueConfig.prompts.resolution;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: "yes its all working great!" },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response say goodbye or close the conversation?', response)).toBe('yes');
+    expect(await judge('Does this response mention contacting the ISP or an ISP phone number?', response)).toBe('no');
+  });
+
   // Guards the MAX_QUALIFYING_TURNS close — after too many turns without identifying the issue,
   // the bot should close warmly and suggest the ISP, not cut off abruptly.
   itLive('qualifying turn limit close is warm and suggests ISP', async () => {
