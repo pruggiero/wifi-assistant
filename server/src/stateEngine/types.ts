@@ -13,7 +13,7 @@ export interface ConversationState {
   stepIndex: number;
 }
 
-export const INITIAL_STATE: ConversationState = {
+export const INITIAL_CONVERSATION_STATE: ConversationState = {
   phase: 'qualifying',
   issueType: null,
   stepIndex: 0,

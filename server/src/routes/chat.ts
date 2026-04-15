@@ -1,19 +1,21 @@
 ﻿import OpenAI from 'openai';
 import { Router, Request, Response } from 'express';
 import { SYSTEM_PROMPT } from '../constants/systemPrompt';
-import { INITIAL_STATE, ConversationState, IssueType, Message } from '../stateEngine/types';
-import { buildInstruction } from '../stateEngine/promptBuilder';
-import { getNextState, classifyQualifying, classifyStepResponse } from '../stateEngine/transitions';
+import { INITIAL_CONVERSATION_STATE, ConversationState, IssueType, Message } from '../stateEngine/types';
+import { processTurn } from '../services/chatService';
 import { issueRegistry } from '../stateEngine/stepGroups';
 
 const router = Router();
 
 const VALID_PHASES = new Set(['qualifying', 'guided-steps', 'resolution', 'closed']);
 const VALID_ROLES = new Set(['user', 'assistant']);
-const MAX_MESSAGES = 25;          // full flow is ~16-22 messages; 25 gives a buffer without being unbounded
-const MAX_MESSAGE_LENGTH = 500;   // user replies are short; blocks prompt injection
-const CLASSIFIER_MESSAGES = 8;    // classifiers need recent context only
-const MAX_QUALIFYING_TURNS = 7;   // if still unclassified after 7 user turns, close gracefully
+const MAX_MESSAGES = 25;        // full flow is ~16-22 messages; 25 gives a buffer
+const MAX_MESSAGE_LENGTH = 500; // user replies are short; blocks prompt injection
+
+const LLM_CONFIG = {
+  model: 'gpt-4o-mini' as const,
+  temperature: 0.3,
+};
 
 function isValidState(state: unknown): state is ConversationState {
   if (!state || typeof state !== 'object') return false;
@@ -44,11 +46,11 @@ router.post('/', async (req: Request, res: Response) => {
   }
 
   const sanitizedMessages: Message[] = messages
-    .filter((m) => VALID_ROLES.has(m?.role) && typeof m?.content === 'string')
+    .filter(m => VALID_ROLES.has(m?.role) && typeof m?.content === 'string')
     .slice(-MAX_MESSAGES)
-    .map((m) => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_LENGTH) }));
+    .map(m => ({ role: m.role, content: m.content.slice(0, MAX_MESSAGE_LENGTH) }));
 
-  const state: ConversationState = isValidState(rawState) ? rawState : INITIAL_STATE;
+  const state: ConversationState = isValidState(rawState) ? rawState : INITIAL_CONVERSATION_STATE;
 
   console.log(`[chat] phase=${state.phase}${state.issueType ? ` issueType=${state.issueType}` : ''} messages=${sanitizedMessages.length}`);
 
@@ -60,115 +62,20 @@ router.post('/', async (req: Request, res: Response) => {
     return;
   }
 
-  // For qualifying, classify first so the response instruction matches the transition
-  let instruction: string;
-  let nextState: ConversationState;
-  let isFlowStart = false; // true when qualifying just resolved - strip history so LLM can't be confused by qualifying conversation
-
-  if (state.phase === 'qualifying') {
-    const userTurns = sanitizedMessages.filter(m => m.role === 'user').length;
-    if (userTurns >= MAX_QUALIFYING_TURNS) {
-      res.json({
-        message: { role: 'assistant', content: "I've asked a few questions but haven't been able to identify the issue. Please contact your ISP or a technician who can help diagnose it directly." },
-        nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
-      });
-      return;
-    }
-    try {
-      const decision = await classifyQualifying(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), getOpenAI());
-      if (decision === 'unclear') {
-        res.json({
-          message: { role: 'assistant', content: "I'm having trouble understanding your situation. Please try rephrasing, or refresh the page to start a new session." },
-          nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
-        });
-        return;
-      }
-      if (decision === 'exit') {
-        instruction = buildInstruction({ phase: 'exit-qualifying', issueType: null, stepIndex: 0 });
-        nextState = { phase: 'closed', issueType: null, stepIndex: 0 };
-      } else if (decision !== 'continue') {
-        // decision is an IssueType - start the guided flow for that issue
-        instruction = buildInstruction({ phase: 'flow-start', issueType: decision, stepIndex: 0 });
-        nextState = { phase: 'guided-steps', issueType: decision, stepIndex: 0 };
-        isFlowStart = true;
-      } else {
-        instruction = buildInstruction(state);
-        nextState = state;
-      }
-    } catch (error) {
-      console.error('[chat] qualifying classifier error:', error);
-      instruction = buildInstruction(state);
-      nextState = state;
-    }
-  } else if (state.phase === 'guided-steps') {
-    const groups = state.issueType ? issueRegistry[state.issueType].steps : [];
-    const group = groups[state.stepIndex];
-    if (!group) {
-      // All steps done, transition to resolution
-      instruction = buildInstruction(state);
-      nextState = { phase: 'resolution', issueType: state.issueType, stepIndex: 0 };
-    } else {
-      try {
-        const stepDecision = await classifyStepResponse(sanitizedMessages.slice(-CLASSIFIER_MESSAGES), group.confirmStep.message, getOpenAI(), state.issueType);
-        if (stepDecision === 'unclear') {
-          res.json({
-            message: { role: 'assistant', content: "I'm having trouble understanding your response. Please try rephrasing, or refresh the page to start a new session." },
-            nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
-          });
-          return;
-        }
-        if (stepDecision === 'question') {
-          instruction = buildInstruction({ phase: 'flow-question', issueType: state.issueType, stepIndex: state.stepIndex });
-          nextState = state; // stay on current step
-        } else if (stepDecision === 'abort') {
-          instruction = buildInstruction({ phase: 'flow-abort', issueType: state.issueType, stepIndex: state.stepIndex });
-          nextState = { phase: 'closed', issueType: null, stepIndex: 0 };
-        } else {
-          // User confirmed - advance to next step
-          const nextStepIndex = state.stepIndex + 1;
-          nextState = nextStepIndex >= groups.length
-            ? { phase: 'resolution', issueType: state.issueType, stepIndex: 0 }
-            : { phase: 'guided-steps', issueType: state.issueType, stepIndex: nextStepIndex };
-          if (nextState.phase === 'resolution') {
-            // Ask if resolved - user needs a turn to answer before we send the close instruction
-            const stepsComplete = state.issueType
-              ? issueRegistry[state.issueType].prompts.stepsComplete
-              : undefined;
-            instruction = stepsComplete ?? 'The guided steps are complete. Ask the user if their issue is resolved.';
-          } else {
-            instruction = buildInstruction(nextState);
-          }
-        }
-      } catch (error) {
-        console.error('[chat] step classifier error:', error);
-        instruction = buildInstruction(state);
-        nextState = state; // safe fallback - don't advance state on error
-      }
-    }
-  } else {
-    instruction = buildInstruction(state);
-    try {
-      nextState = await getNextState(state, sanitizedMessages, getOpenAI());
-    } catch (error) {
-      console.error('[chat] getNextState error:', error);
-      res.status(500).json({ error: 'Failed to get a response. Please try again.' });
-      return;
-    }
-  }
-
   try {
+    const { instruction, nextState, stripHistory } = await processTurn(state, sanitizedMessages, getOpenAI());
+
     const completion = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.3,
+      ...LLM_CONFIG,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
-        ...(isFlowStart ? [] : sanitizedMessages),
+        ...(stripHistory ? [] : sanitizedMessages),
       ],
     });
 
     res.json({ message: completion.choices[0].message, nextState });
   } catch (error) {
-    console.error('OpenAI error:', error);
+    console.error('[chat] error:', error);
     res.status(500).json({ error: 'Failed to get a response. Please try again.' });
   }
 });
