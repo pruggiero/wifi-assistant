@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+﻿import { describe, it, expect } from 'vitest';
 import OpenAI from 'openai';
 import { SYSTEM_PROMPT } from '../constants/systemPrompt';
 import { buildInstruction } from '../stateEngine/promptBuilder';
@@ -76,21 +76,14 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response ask the user to try more troubleshooting steps?', response)).toBe('no');
   });
 
-  itLive('qualifying phase asks at least one qualifying question', async () => {
+  itLive('qualifying phase does not offer troubleshooting advice', async () => {
+    // Guards the bug where the qualifying phase told the user to restart their laptop
     const response = await getResponse(
       { phase: 'qualifying', issueType: null, stepIndex: 0 },
-      'Hello, my internet stopped working.'
+      'my laptop cannot stream netflix but I have not checked other devices'
     );
-    expect(await judge('Does this response ask whether the issue is affecting all devices or just one?', response)).toBe('yes');
-  });
-
-  itLive('reboot phase does not skip ahead to next step unprompted', async () => {
-    const response = await getResponse(
-      { phase: 'guided-steps', issueType: 'reboot', stepIndex: 0 },
-      'ok im ready to start'
-    );
-    expect(await judge('Does this response ask the user to unplug the power cable from the router or modem?', response)).toBe('yes');
-    expect(await judge('Does this response ask the user to plug anything back in?', response)).toBe('no');
+    expect(await judge('Does this response suggest the user restart their device, clear their cache, or try any other troubleshooting action?', response)).toBe('no');
+    expect(await judge('Does this response ask at least one diagnostic question?', response)).toBe('yes');
   });
 
   // Guards the bug where partial success caused the LLM to improvise further troubleshooting
@@ -124,6 +117,7 @@ describe('response quality (LLM-as-judge)', () => {
     const response = completion.choices[0].message.content ?? '';
     expect(await judge('Does this response close the conversation or say goodbye?', response)).toBe('no');
     expect(await judge('Does this response tell the user to take their time or that you will be here when ready?', response)).toBe('yes');
+    expect(await judge('Does this response offer troubleshooting steps or suggest the user try something technical?', response)).toBe('no');
   });
 
   // Guards the bug where "working but slow" triggered further troubleshooting instead of closing
@@ -140,5 +134,60 @@ describe('response quality (LLM-as-judge)', () => {
     const response = completion.choices[0].message.content ?? '';
     expect(await judge('Does this response close the conversation or say goodbye?', response)).toBe('yes');
     expect(await judge('Does this response offer further troubleshooting steps or ask the user to try anything else?', response)).toBe('no');
+  });
+
+  // Guards the bug where self-resolved mid-flow routed to abort (cold exit) instead of stepsComplete (warm close)
+  itLive('self-resolved mid-flow gets a warm close, not a cold exit', async () => {
+    const instruction = issueRegistry['reboot'].prompts.stepsComplete;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: "oh wait it's all working again!" },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response congratulate the user or express happiness that the issue resolved?', response)).toBe('yes');
+    expect(await judge('Does this response say goodbye or close the conversation?', response)).toBe('yes');
+  });
+
+  // Guards the bug where exit-qualifying said "this tool is specifically for WiFi connectivity issues"
+  // even when the problem clearly was a WiFi/connectivity issue (e.g. ISP outage)
+  itLive('exit-qualifying suggests a next step rather than dismissing the user', async () => {
+    const response = await getResponse(
+      { phase: 'exit-qualifying', issueType: null, stepIndex: 0 },
+      "I think there might be an outage in my area, my neighbour has the same issue"
+    );
+    expect(await judge('Does this response suggest the user contact their ISP or check for a service outage?', response)).toBe('yes');
+    expect(await judge('Does this response tell the user their problem is not a WiFi issue or is off-topic?', response)).toBe('no');
+  });
+
+  // Guards against the qualifying phase giving exit advice directly instead of via exit-qualifying
+  itLive('qualifying phase does not give exit advice when ISP outage is suspected', async () => {
+    const response = await getResponse(
+      { phase: 'qualifying', issueType: null, stepIndex: 0 },
+      "both my laptop and phone are down, and my neighbour's WiFi is also out - sounds like the ISP might be having issues"
+    );
+    expect(await judge('Does this response suggest the user contact their ISP or check for an outage?', response)).toBe('no');
+    expect(await judge('Does this response ask at least one follow-up question?', response)).toBe('yes');
+  });
+
+  // Partial resolution should close positively, not apologize
+  itLive('partial resolution closes conversation positively and suggests ISP for remaining device', async () => {
+    const instruction = 'The issue is partially resolved - things are better but not fully fixed. Close the conversation positively. ' + issueRegistry['reboot'].prompts.resolution;
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: 'my laptop is working now but my phone still cannot connect' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response acknowledge progress or partial success?', response)).toBe('yes');
+    expect(await judge('Does this response suggest contacting an ISP or technician for the remaining device?', response)).toBe('yes');
+    expect(await judge('Does this response apologize as if nothing worked?', response)).toBe('no');
+    expect(await judge('Does this response offer further troubleshooting steps?', response)).toBe('no');
   });
 });

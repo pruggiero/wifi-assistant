@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+﻿import OpenAI from 'openai';
 import { ConversationState, Message } from '../stateEngine/types';
 import { buildInstruction } from '../stateEngine/promptBuilder';
 import { classifyQualifying, classifyStepResponse, classifyResolution } from '../stateEngine/transitions';
@@ -38,7 +38,7 @@ async function processQualifying(
   const userTurns = messages.filter(m => m.role === 'user').length;
   if (userTurns >= MAX_QUALIFYING_TURNS) {
     return {
-      instruction: `You have asked several qualifying questions but could not identify the issue type. Apologize warmly and let the user know you're unable to continue — suggest they contact their ISP or a technician.`,
+      instruction: `You have asked several qualifying questions but could not identify the issue type. Apologize warmly and let the user know you're unable to continue - suggest they contact their ISP or a technician.`,
       nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
       stripHistory: false,
     };
@@ -77,14 +77,6 @@ async function processGuidedSteps(
   const config = issueRegistry[state.issueType!];
   const group = config.steps[state.stepIndex];
 
-  if (!group) {
-    return {
-      instruction: config.prompts.stepsComplete,
-      nextState: { phase: 'resolution', issueType: state.issueType, stepIndex: 0 },
-      stripHistory: false,
-    };
-  }
-
   const lastUserMessage = messages.filter((m: Message) => m.role === 'user').pop()?.content ?? '';
   const decision = await classifyStepResponse(
     lastUserMessage,
@@ -117,7 +109,6 @@ async function processGuidedSteps(
     };
   }
 
-  // confirm — advance to next step
   const nextStepIndex = state.stepIndex + 1;
   const isLastStep = nextStepIndex >= config.steps.length;
   const nextState: ConversationState = isLastStep
@@ -160,10 +151,14 @@ async function processResolution(
 
   const config = issueRegistry[state.issueType!];
   const outcomeContext = decision === 'resolved'
-    ? 'The user has confirmed their issue is resolved or improved. '
+    ? 'The user has confirmed their issue is fully resolved. '
+    : decision === 'partial'
+    ? 'The issue is partially resolved - things are better but not fully fixed. Close the conversation positively. '
     : 'The user has confirmed their issue is NOT resolved. ';
   const fallbackResolution = decision === 'resolved'
     ? 'Congratulate the user warmly and say goodbye. Do NOT ask follow-up questions.'
+    : decision === 'partial'
+    ? 'Acknowledge the partial progress positively. Suggest they contact their ISP or a technician for what remains. Say goodbye. Do NOT ask follow-up questions.'
     : 'Apologize sincerely and suggest they contact their ISP or a technician. Say goodbye. Do NOT ask follow-up questions.';
 
   return {

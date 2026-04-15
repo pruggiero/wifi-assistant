@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+﻿import { describe, it, expect } from 'vitest';
 
 // Integration tests for classifyQualifying.
 // These use the real OpenAI API and are skipped unless OPENAI_API_KEY is set.
@@ -37,7 +37,7 @@ describe('classifyQualifying (integration)', () => {
     const classify = await getClassifier();
     const result = await classify([
       { role: 'assistant', content: 'Is the issue affecting all devices, or just one? Have you made any recent changes? Are any lights on your router red or off?' },
-      { role: 'user', content: 'just my laptop, phone and tablet are working fine, no changes, lights look normal' },
+      { role: 'user', content: 'just my laptop - my phone and tablet connect fine. no changes, lights look normal' },
     ]);
     expect(result).toBe('exit');
   });
@@ -144,7 +144,7 @@ describe('classifyQualifying (integration)', () => {
     expect(result).toBe('exit');
   });
 
-  // Multiple devices affected + router lights off — should route to reboot, not exit as hardware damage
+  // Multiple devices affected + router lights off - should route to reboot, not exit as hardware damage
   itLive('returns reboot when multiple devices affected and router lights are off', async () => {
     const classify = await getClassifier();
     const result = await classify([

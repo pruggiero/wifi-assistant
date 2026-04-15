@@ -78,19 +78,19 @@ function buildStepGroups(steps: Step[]): StepGroup[] {
 export const issueRegistry: Record<IssueType, IssueConfig> = {
   reboot: {
     qualifying: {
-      classifierDescription: `WiFi is not working across multiple (or all) devices — choose reboot. This is the strongest signal; if the user confirms multiple devices are affected, do not choose continue.`,
+      classifierDescription: `WiFi is not working across multiple (or all) devices - choose reboot. This is the strongest signal; if the user confirms multiple devices are affected, do not choose continue.`,
       routingSignals: [
         'router shows abnormal lights (red, or lights off that are usually on) - choose reboot even if only one device is affected',
         'user made recent network changes (moved the router, added a new device, changed settings) - choose reboot even if only one device is affected',
         'user has already attempted a reboot at home but the issue persists - still choose reboot to guide them through the proper procedure',
       ],
       exitCriteria: [
-        'the user has directly confirmed other named devices are working AND only one device is affected — e.g. "just my laptop, phone and tablet are fine", "my phone works fine, only the laptop is broken", "tablet connects normally but not my PC". Stating only one device is affected without also confirming others work does NOT meet this criterion; this applies even if the user recently moved the router or made other network changes',
+        'the user has directly confirmed other named devices are working AND only one device is affected - e.g. "just my laptop, phone and tablet are fine", "my phone works fine, only the laptop is broken", "tablet connects normally but not my PC". Stating only one device is affected without also confirming others work does NOT meet this criterion; this applies even if the user recently moved the router or made other network changes',
         'a specific website is down but general internet access is fine',
         'an ISP outage is suspected',
         'the router has visible physical damage (e.g. cracked, dropped, burnt, flooded)',
       ],
-      exitClassifierNote: 'For the physical damage criterion only: abnormal router lights (red lights, or lights off that are usually on) do NOT count as physical hardware damage — they indicate a software/connection issue that warrants guided troubleshooting, not an exit.',
+      exitClassifierNote: 'For the physical damage criterion only: abnormal router lights (red lights, or lights off that are usually on) do NOT count as physical hardware damage - they indicate a software/connection issue that warrants guided troubleshooting, not an exit.',
       suggestedQuestions: [
         'Is the issue affecting all devices, or just one?',
         'Have you made any recent changes - like moving the router, adding a new device, or changing any settings?',
@@ -99,7 +99,7 @@ export const issueRegistry: Record<IssueType, IssueConfig> = {
     },
     steps: buildStepGroups(rebootSteps),
     prompts: {
-      start: `The qualifying questions are complete and a router reboot is the right next step. Briefly tell the user you are going to walk them through a reboot, framing it as the first step in resolving their issue, not a generic "next step".`,
+      start: `The qualifying questions are complete and a router reboot is the right next step. Briefly tell the user you are going to walk them through a reboot to resolve their issue. Do NOT use phrases like "let's start" or "first step" - the conversation has already been going; frame it as the solution, not the beginning.`,
       questionContext: 'a router reboot',
       abort: `The user has indicated they want to stop and no longer need to continue the reboot. Acknowledge this warmly and close the conversation. Do NOT continue the reboot steps. Do NOT ask any follow-up questions.`,
       stepsComplete: `The reboot steps are complete. Look at the user's last message to determine the outcome:

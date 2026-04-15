@@ -17,7 +17,7 @@ async function classifyExit(messages: Message[], openai: OpenAI): Promise<boolea
 
   const conditionList = exitConditions.map(c => `- ${c}`).join('\n');
   const notes = Object.values(issueRegistry).map(c => c.qualifying.exitClassifierNote).filter(Boolean) as string[];
-  const classifierNotes = notes.length ? `\nIMPORTANT — ${notes.join(' ')}\n\n` : '\n';
+  const classifierNotes = notes.length ? `\nIMPORTANT - ${notes.join(' ')}\n\n` : '\n';
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0,
@@ -80,7 +80,7 @@ async function classifyIssueType(
         content: `Based on the conversation so far, which guided troubleshooting flow should the user be routed to?
 
 ${issueDescriptions}
-- continue: Not enough information yet. Only choose this when it is genuinely unclear which flow applies — for example, if the number of affected devices has not been established. Do NOT choose continue when a routing signal is clearly present.
+- continue: Not enough information yet. Only choose this when it is genuinely unclear which flow applies - for example, if the number of affected devices has not been established. Do NOT choose continue when a routing signal is clearly present.
 
 Respond with JSON: { "decision": "${validDecisions}" }`,
       },
@@ -143,7 +143,7 @@ Respond with JSON: { "decision": "confirm" | "question" | "abort" | "resolved" }
 async function classifyResolution(
   messages: Message[],
   openai: OpenAI
-): Promise<'resolved' | 'unresolved' | 'pending' | 'question'> {
+): Promise<'resolved' | 'unresolved' | 'partial' | 'pending' | 'question'> {
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0,
@@ -158,12 +158,13 @@ async function classifyResolution(
         role: 'user',
         content: `Based on the user's most recent message, have they confirmed whether their WiFi issue is resolved?
 
-- resolved: user confirms the issue is fixed or working. Short affirmatives ("done", "yes", "ok", "yep", "working", "all good", "looks good") immediately following a direct resolution question should be treated as resolved.
-- unresolved: user confirms the issue is still not working
+- resolved: user confirms their issue is fixed. Short affirmative replies immediately following a direct resolution question (e.g. "yes", "yep", "done", "looks good") should be treated as resolved.
+- partial: the issue is better but not fully resolved (e.g. some things work but not everything)
+- unresolved: user confirms the issue is still not fixed
 - pending: user explicitly says they are still checking (e.g. "hold on", "let me try", "checking now"), or has clearly not yet confirmed either way
 - question: user is asking a follow-up question without confirming the outcome (e.g. "why did this happen?", "what should I do if it happens again?")
 
-Respond with JSON: { "decision": "resolved" | "unresolved" | "pending" | "question" }`,
+Respond with JSON: { "decision": "resolved" | "partial" | "unresolved" | "pending" | "question" }`,
       },
     ],
   });
@@ -171,6 +172,7 @@ Respond with JSON: { "decision": "resolved" | "unresolved" | "pending" | "questi
   try {
     const parsed = JSON.parse(completion.choices[0].message.content ?? '{}') as { decision?: string };
     if (parsed.decision === 'resolved') return 'resolved';
+    if (parsed.decision === 'partial') return 'partial';
     if (parsed.decision === 'unresolved') return 'unresolved';
     if (parsed.decision === 'question') return 'question';
     return 'pending';

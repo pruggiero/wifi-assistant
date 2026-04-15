@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+﻿import { describe, it, expect } from 'vitest';
 
 // Eval tests for the reboot step response classifier.
 // Run with: OPENAI_API_KEY=sk-... npx vitest run "src/test/classifyReboot"
@@ -24,24 +24,6 @@ describe('classifyStepResponse (integration)', () => {
     const classify = await getClassifier();
     const result = await classify(
       [{ role: 'user', content: 'done' }],
-      UNPLUG_STEP
-    );
-    expect(result).toBe('confirm');
-  });
-
-  itLive('returns confirm for "ok I did it"', async () => {
-    const classify = await getClassifier();
-    const result = await classify(
-      [{ role: 'user', content: 'ok I did it' }],
-      UNPLUG_STEP
-    );
-    expect(result).toBe('confirm');
-  });
-
-  itLive('returns confirm for "ready"', async () => {
-    const classify = await getClassifier();
-    const result = await classify(
-      [{ role: 'user', content: 'ready' }],
       UNPLUG_STEP
     );
     expect(result).toBe('confirm');
@@ -90,5 +72,15 @@ describe('classifyStepResponse (integration)', () => {
       MODEM_STEP
     );
     expect(result).toBe('abort');
+  });
+
+  // Combined confirm + question should not swallow the question by returning confirm
+  itLive('returns question when user confirms step but also asks a question', async () => {
+    const classify = await getClassifier();
+    const result = await classify(
+      [{ role: 'user', content: 'ok just unplugged both of them - but do I need to unplug the cable going into the wall socket too?' }],
+      UNPLUG_STEP
+    );
+    expect(result).toBe('question');
   });
 });

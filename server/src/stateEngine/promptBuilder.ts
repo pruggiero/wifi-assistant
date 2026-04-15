@@ -9,13 +9,13 @@ type InstructionState =
 export function buildInstruction(state: InstructionState): string {
   switch (state.phase) {
     case 'exit-qualifying':
-      return `Guided troubleshooting will not resolve the user's specific situation. Respond briefly and politely: acknowledge what they said in one short sentence, explain that you are not able to help further with this particular situation, and suggest an appropriate next step — for example, contacting their ISP for outage or connection issues, getting the hardware inspected or replaced for physical damage, or checking the device's own network settings for a single-device issue. Do NOT provide detailed advice or instructions. Do NOT ask any follow-up questions.`;
+      return `Guided troubleshooting will not resolve the user's specific situation. Respond briefly and politely: acknowledge what they said in one short sentence, explain that you are not able to help further with this particular situation, and suggest an appropriate next step - for example, contacting their ISP for outage or connection issues, getting the hardware inspected or replaced for physical damage, or checking the device's own network settings for a single-device issue. Do NOT provide detailed advice or instructions. Do NOT ask any follow-up questions.`;
 
     case 'flow-start': {
       const config = issueRegistry[state.issueType];
       const firstGroup = config.steps[0];
       const startPrompt = config.prompts.start;
-      const opener = `Do NOT open with "Great!" or any similar affirmation — the user has a problem, not good news. `;
+      const opener = `Do NOT open with "Great!" or any similar affirmation - the user has a problem, not good news. `;
       if (firstGroup) {
         if (firstGroup.presentSteps.length > 1) {
           const stepLines = firstGroup.presentSteps.map((s, i) => `${i + 1}. ${s.message}`).join('\n');
@@ -43,19 +43,14 @@ export function buildInstruction(state: InstructionState): string {
     }
 
     case 'flow-abort': {
-      return issueRegistry[state.issueType].prompts.abort ?? `The user has indicated they no longer need to continue. Acknowledge this warmly and close the conversation. Do NOT ask any follow-up questions.`;
+      return issueRegistry[state.issueType].prompts.abort;
     }
 
     case 'qualifying': {
       const issueContext = Object.values(issueRegistry)
         .map(c => `- ${c.qualifying.classifierDescription}\n  Useful questions: ${c.qualifying.suggestedQuestions.join(' | ')}`)
         .join('\n');
-      const exitConditions = Object.values(issueRegistry)
-        .flatMap(c => c.qualifying.exitCriteria ?? []);
-      const exitLine = exitConditions.length
-        ? `- exit: guided troubleshooting won't help. Applies when:\n${exitConditions.map(c => `  - ${c}`).join('\n')}`
-        : `- exit: issue is out of scope for guided troubleshooting`;
-      return `You are gathering information to diagnose a WiFi issue. Your goal is to determine which of these applies:\n${issueContext}\n${exitLine}\n\nBased on what the user has already said, ask the 1-2 most relevant follow-up questions. Do not ask questions they have already answered. Do not list all questions at once.\n\nIf this is the start of the conversation, greet the user warmly and ask one opening question.\nDo not make a decision yet - just gather information.`;
+      return `You are gathering information to diagnose a WiFi issue. Your goal is to determine which of these applies:\n${issueContext}\n\nBased on what the user has already said, ask the 1-2 most relevant follow-up questions. Do not ask questions they have already answered. Do not list all questions at once.\n\nIf this is the start of the conversation, greet the user warmly and ask one opening question.\nDo NOT offer troubleshooting steps, workarounds, or advice of any kind - only ask questions.\nDo not make a decision yet - just gather information.`;
     }
 
     case 'guided-steps': {

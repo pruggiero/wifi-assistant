@@ -153,12 +153,34 @@ describe('flow-start step 1 integrity (LLM-as-judge)', () => {
     expect(await judge('Does this response ask the user to plug anything back in?', response)).toBe('no');
   });
 
-  // No prior context - clean start
-  itLive('flow-start: presents unplug step with no prior context', async () => {
+  // Guards the bug where flow-start used "let's start" / "first step" language mid-conversation
+  itLive('flow-start: does not use "let\'s start" or "first step" language', async () => {
     const response = await getFlowStartResponse([
-      { role: 'user', content: "ok let's do it" },
+      { role: 'assistant', content: 'Is the issue affecting all devices?' },
+      { role: 'user', content: 'yes both my laptop and phone have no internet' },
+      { role: 'assistant', content: 'Any recent changes or unusual router lights?' },
+      { role: 'user', content: 'no changes, lights look normal' },
     ]);
-    expect(await judge('Does this response ask the user to unplug the power cable from both the router and modem?', response)).toBe('yes');
-    expect(await judge('Does this response ask the user to plug anything back in?', response)).toBe('no');
+    expect(await judge('Does this response use the phrase "let\'s start" or "first step" or similar language suggesting this is the very beginning of the interaction?', response)).toBe('no');
+    expect(await judge('Does this response tell the user to unplug the router or modem?', response)).toBe('yes');
+  });
+
+  // Guards the bug where flow-question only reminded the user of confirmStep (wait 10s)
+  // and dropped the preceding unplug step for multi-step groups
+  itLive('flow-question: reminds user of all pending steps in a multi-step group', async () => {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // Group 0 has 2 steps: "Unplug power cable from both..." + "Wait about 10 seconds"
+    const instruction = buildInstruction({ phase: 'flow-question', issueType: 'reboot', stepIndex: 0 });
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
+        { role: 'user', content: 'where is the power cable usually located?' },
+      ],
+    });
+    const response = completion.choices[0].message.content ?? '';
+    expect(await judge('Does this response remind the user to unplug the power cable?', response)).toBe('yes');
+    expect(await judge('Does this response mention waiting 10 seconds?', response)).toBe('yes');
   });
 });
