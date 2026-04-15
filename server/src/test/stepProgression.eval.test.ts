@@ -121,12 +121,12 @@ describe('step progression (LLM-as-judge)', () => {
       temperature: 0.3,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
-        { role: 'assistant', content: "If the router's power light is still blinking, wait until it stops. Then try connecting to the internet again. Let me know if it works." },
+        { role: 'assistant', content: "If the router's power light is still blinking, wait until it stops. Then wait about 2 minutes before trying to connect. Try connecting to the internet again. Let me know if it works." },
         { role: 'user', content: 'the lights are solid, not blinking' },
       ],
     });
     const response = completion.choices[0].message.content ?? '';
-    expect(await judge('Does this response ask the user to try connecting to the internet?', response)).toBe('yes');
+    expect(await judge('Does this response direct the user to try connecting to the internet (now or after a brief wait)?', response)).toBe('yes');
     expect(await judge('Does this response tell the user to wait for the lights to stop blinking?', response)).toBe('no');
   });
 
