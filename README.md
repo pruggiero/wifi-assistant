@@ -63,7 +63,7 @@ State is server-owned. The client sends `conversationState` back with each reque
 - **Shorter classifier context window:** classifiers receive only the last 8 messages. They need recent intent, not the full history.
 - **`gpt-4o-mini` throughout:** handles constrained classification and guided responses well at a fraction of the cost of `gpt-4o`.
 - **`temperature: 0` on classifiers, `0.3` on responses:** deterministic classifiers make eval results repeatable. A low non-zero temperature on responses avoids robotic repetition without sacrificing consistency.
-- **Structured JSON outputs for classifiers:** classifiers use `response_format: { type: 'json_object' }` and return a typed `decision` field. No logprob parsing, confidence thresholds, or string matching — the JSON schema is the contract. Invalid or missing fields fall back to safe defaults (`continue`, `confirm`).
+- **Structured JSON outputs for classifiers:** classifiers use `response_format: { type: 'json_object' }` and return a typed `decision` field. No logprob parsing, confidence thresholds, or string matching — the JSON schema is the contract. Invalid or missing fields fall back to safe defaults (`continue`, `question`, `pending`, `false`). Each default is the no-op for that classifier: re-ask the question, keep qualifying, or skip the exit gate.
 - **`processTurn` as a service boundary:** per-turn business logic is isolated from the HTTP layer. Route tests mock `processTurn` to verify HTTP behavior; the service owns all classifier and transition logic. The two concerns don't bleed into each other.
 - **Static response for `closed` phase:** no LLM call once the conversation is done.
 
@@ -119,7 +119,7 @@ Mirror the same change in **`client/src/types.ts`**.
 ```ts
 import { Step } from '../stateEngine/types';
 export const newIssueSteps: Step[] = [
-  { id: 1, message: 'Instruction shown to the user.', waitForUser: true },
+  { message: 'Instruction shown to the user.', waitForUser: true },
   ...
 ];
 ```
