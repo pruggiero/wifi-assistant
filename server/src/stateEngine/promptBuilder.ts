@@ -47,10 +47,10 @@ export function buildInstruction(state: InstructionState): string {
     }
 
     case 'qualifying': {
-      const issueContext = Object.values(issueRegistry)
-        .map(c => `- ${c.qualifying.classifierDescription}\n  Useful questions: ${c.qualifying.suggestedQuestions.join(' | ')}`)
-        .join('\n');
-      return `You are gathering information to diagnose a WiFi issue. Your goal is to determine which of these applies:\n${issueContext}\n\nBased on what the user has already said, ask the 1-2 most relevant follow-up questions. Do not ask questions they have already answered. Do not list all questions at once.\n\nIf this is the start of the conversation (no user messages yet), write a brief warm greeting followed by this single question and nothing else: "Can you describe what's happening with your WiFi?" Do NOT ask any additional questions. Do NOT add follow-up prompts. One question only.\nDo NOT offer troubleshooting steps, workarounds, or advice of any kind - only ask questions. Do NOT suggest contacting an ISP, checking for outages, or any other next steps - even if the issue sounds like it might not be fixable here.\nDo not make a decision yet - just gather information.`;
+      const allQuestions = Object.values(issueRegistry)
+        .flatMap(c => c.qualifying.suggestedQuestions);
+      const questionPool = [...new Set(allQuestions)].map(q => `- ${q}`).join('\n');
+      return `You are gathering information to diagnose a WiFi issue. Based on what the user has already said, ask the 1-2 most relevant follow-up questions from this pool:\n${questionPool}\n\nDo not ask questions they have already answered. Do not list all questions at once.\n\nIf this is the start of the conversation (no user messages yet), write a brief warm greeting followed by this single question and nothing else: "Can you describe what's happening with your WiFi?" Do NOT ask any additional questions. Do NOT add follow-up prompts. One question only.\nDo NOT offer troubleshooting steps, workarounds, or advice of any kind - only ask questions. Do NOT suggest contacting an ISP, checking for outages, or any other next steps - even if the issue sounds like it might not be fixable here.\nDo not make a decision yet - just gather information.`;
     }
 
     case 'guided-steps': {

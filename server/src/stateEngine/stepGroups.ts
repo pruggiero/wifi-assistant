@@ -1,9 +1,19 @@
 ﻿import { rebootConfig } from '../constants/rebootConfig';
 import { IssueType, Step } from './types';
+import { QualifyingFacts } from './qualifyingFacts';
 
 export interface StepGroup {
   presentSteps: Step[];
   confirmStep: Step;
+}
+
+export interface ResolutionPrompts {
+  /** User confirmed the issue is fully resolved. */
+  resolved: string;
+  /** Some devices or symptoms remain but it's better than before. */
+  partial: string;
+  /** User confirmed the issue is not resolved. */
+  unresolved: string;
 }
 
 export interface IssuePrompts {
@@ -11,24 +21,14 @@ export interface IssuePrompts {
   /** Short phrase inserted into: "guided through {questionContext}". E.g. "a router reboot". */
   questionContext: string;
   abort: string;
+  /** Used when the user self-resolves during guided steps (classifyStepResponse returns 'resolved'). Always a success case. */
   stepsComplete: string;
-  /** If omitted, falls back to a generic close message. */
-  resolution?: string;
+  resolution: ResolutionPrompts;
 }
 
 export interface IssueQualifying {
-  /** One sentence used in the classifier prompt: when should this issue type be chosen? */
-  classifierDescription: string;
-  /** Extra conditions that should route to this issue type regardless of device count.
-   *  Each entry is a short fragment, e.g. "router shows abnormal lights".
-   *  Rendered as "Also choose <issueType> when: <signal>" in the classifier prompt. */
-  routingSignals?: string[];
-  /** Conditions under which guided troubleshooting should be skipped. Each is a standalone condition. */
-  exitCriteria?: string[];
-  /** Optional extra instruction appended to the exit classifier prompt. Use for issue-specific overrides
-   *  that clarify when exit criteria should or should not apply. */
-  exitClassifierNote?: string;
-
+  /** Routing logic: given extracted facts, return the issue type to route to, 'exit', or 'continue'. */
+  route: (facts: QualifyingFacts) => IssueType | 'exit' | 'continue';
   /** Questions the LLM can draw from. It picks the 1-2 most relevant per turn, not all of them. */
   suggestedQuestions: string[];
 }

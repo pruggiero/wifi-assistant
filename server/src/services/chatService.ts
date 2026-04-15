@@ -152,19 +152,14 @@ async function processResolution(
   }
 
   const config = issueRegistry[state.issueType!];
-  const outcomeContext = decision === 'resolved'
-    ? 'The user has confirmed their issue is fully resolved. '
-    : decision === 'partial'
-    ? 'The issue is partially resolved - things are better but not fully fixed. Close the conversation positively. '
-    : 'The user has confirmed their issue is NOT resolved. ';
-  const fallbackResolution = decision === 'resolved'
-    ? 'Congratulate the user warmly and say goodbye. Do NOT ask follow-up questions.'
-    : decision === 'partial'
-    ? 'Acknowledge the partial progress positively. Suggest they contact their ISP or a technician for what remains. Say goodbye. Do NOT ask follow-up questions.'
-    : 'Apologize sincerely and suggest they contact their ISP or a technician. Say goodbye. Do NOT ask follow-up questions.';
+  const fallback: Record<string, string> = {
+    resolved: 'Congratulate the user warmly and say goodbye. Do NOT ask follow-up questions.',
+    partial: 'Acknowledge the partial progress positively. Suggest they contact their ISP or a technician for what remains. Say goodbye. Do NOT ask follow-up questions.',
+    unresolved: 'Apologize sincerely and suggest they contact their ISP or a technician. Say goodbye. Do NOT ask follow-up questions.',
+  };
 
   return {
-    instruction: outcomeContext + (config.prompts.resolution ?? fallbackResolution),
+    instruction: config.prompts.resolution[decision] ?? fallback[decision],
     nextState: { phase: 'closed', issueType: null, stepIndex: 0 },
     stripHistory: false,
   };
