@@ -47,7 +47,9 @@ State is server-owned. The client sends `conversationState` back with each reque
 
 **Issue registry:** Issue types are defined in `issueRegistry` in `stepGroups.ts`. Each entry owns its qualifying config, step groups, and prompts. The classifier, qualifying prompt, routing, and resolution look-up all read from the registry. See [Adding an Issue Type](#adding-an-issue-type).
 
-**Pre-classification:** Two lightweight classifier calls run before the response is generated. `classifyExit` is a yes/no gate — it fires when guided troubleshooting is not appropriate (e.g. ISP outage, single device affected). If it does not fire, `classifyIssueType` routes to the matching issue type or returns `continue` to keep qualifying. Both use `max_tokens: 10`. Pre-classifying first means the LLM instruction always matches the state transition that is about to happen — without this, the response and state can disagree.
+**Pre-classification:** Two lightweight classifier calls run before the response is generated. `classifyExit` is a yes/no gate — it fires when guided troubleshooting is not appropriate (e.g. ISP outage, single device affected). If it does not fire, `classifyIssueType` routes to the matching issue type or returns `continue` to keep qualifying. Both use `response_format: { type: 'json_object' }` and return a typed `decision` field. Pre-classifying first means the LLM instruction always matches the state transition that is about to happen — without this, the response and state can disagree.
+
+**Turn processing:** All per-turn business logic lives in `chatService.processTurn` — classifier calls, transition decisions, instruction selection, and the `stripHistory` flag. The route handles only input validation, sanitization, and the final OpenAI call. `processTurn` returns `{ instruction, nextState, stripHistory }` and is mockable at the service boundary without touching HTTP.
 
 **Step grouping:** Steps are bundled into groups. Non-waiting steps are folded into the next confirmation step, so the user is not prompted after every individual action. The reboot flow has 6 steps across 4 groups.
 
@@ -61,7 +63,8 @@ State is server-owned. The client sends `conversationState` back with each reque
 - **Shorter classifier context window:** classifiers receive only the last 8 messages. They need recent intent, not the full history.
 - **`gpt-4o-mini` throughout:** handles constrained classification and guided responses well at a fraction of the cost of `gpt-4o`.
 - **`temperature: 0` on classifiers, `0.3` on responses:** deterministic classifiers make eval results repeatable. A low non-zero temperature on responses avoids robotic repetition without sacrificing consistency.
-- **Logprob confidence check:** both classifiers reject responses where `Math.exp(logprob) < 0.4`. With 3 classes, random chance is 33%, so anything below 40% is unreliable. The conversation closes with a rephrase prompt rather than acting on a weak classification.
+- **Structured JSON outputs for classifiers:** classifiers use `response_format: { type: 'json_object' }` and return a typed `decision` field. No logprob parsing, confidence thresholds, or string matching — the JSON schema is the contract. Invalid or missing fields fall back to safe defaults (`continue`, `confirm`).
+- **`processTurn` as a service boundary:** per-turn business logic is isolated from the HTTP layer. Route tests mock `processTurn` to verify HTTP behavior; the service owns all classifier and transition logic. The two concerns don't bleed into each other.
 - **Static response for `closed` phase:** no LLM call once the conversation is done.
 
 ---
@@ -74,7 +77,9 @@ State is server-owned. The client sends `conversationState` back with each reque
 - **Qualifying context not carried into the flow:** `ConversationState` only tracks `issueType` and `stepIndex`. Anything learned during qualifying (device type, symptoms, what the user has already tried) lives in message history but not in state. If steps need to vary based on qualifying answers, the options are a `context` bag on `ConversationState` populated by an extraction step, or separate `IssueType` entries per variant.
 - **Registry is compile-time only:** issue types are TypeScript, so adding a new flow requires a code change and redeploy. A config-file or database-backed registry with a schema validator would let non-developers manage flows without touching code.
 - **No session persistence:** a server restart resets all conversations. Persisting state would need a session store keyed to the client.
-- **No streaming:** responses are a single JSON payload. `nextState` is only known after the full completion, so streaming would require content chunks and `nextState` as separate SSE events.
+- **No conversationId:** state is echoed back by the client with no session identifier. If two requests for the same conversation arrived concurrently, last-write-wins. Production would need a `conversationId` on each request and either server-side session storage or an optimistic-lock on state writes.
+- **No streaming:** responses are a single JSON payload. `nextState` is only known after the full completion, so streaming would require content chunks and `nextState` as separate SSE events — e.g. SSE with a `delta` event per token and a final `state` event.
+- **Basic error handling:** the route returns a generic 500 for all OpenAI failures. Production would distinguish rate-limit errors (retry with backoff), auth errors (don't retry, alert), and application errors (log with request context), and surface different messages to the client accordingly.
 - **Full history to response LLM:** classifiers use 8 messages, but the response LLM gets up to 25. A phase-aware window could reduce token cost once the flow moves past qualifying.
 
 ---
@@ -86,6 +91,8 @@ State is server-owned. The client sends `conversationState` back with each reque
 - **Mid-step corrections:** "oh wait I made a mistake, let me try again" classifies as `question`, the current step re-prompts, and state does not advance. No special handling needed.
 - **Resolution follow-up questions:** without explicit instruction the model defaults to "Is there anything else I can help you with?" Adding "This is your final message. Do NOT ask follow-up questions." to the resolution prompt stopped it.
 - **Partial resolution improvisation:** when the reboot fixed one device but not another, the model improvised further troubleshooting steps outside its designed flow. The resolution prompt now covers the partial success case explicitly and closes by referring to ISP/technician. The right long-term fix would be a separate issue type (e.g. `device-reconnect`) rather than allowing the resolution LLM to freelance - the tool should only guide through flows it has been designed and tested to run.
+- **Abort classifier too broad:** "oh wait it's working!" was classified as `abort` without a clear definition of what `abort` covers, leading to inconsistent behaviour. The classifier definition now explicitly includes both cases: the user wanting to stop *and* the issue resolving on its own mid-flow. Both close via the `flow-abort` instruction, which closes warmly in either case. A cleaner long-term fix would be a separate `resolved` classifier outcome that routes through the `resolution` phase so the bot can congratulate the user properly — but for a single-flow implementation the current behaviour is acceptable.
+- **Flow-start step skip:** when the qualifying conversation included "I already unplugged it", the LLM inferred step 1 was already done and started at step 2. Fixed by setting `stripHistory: true` on flow-start — the generation call receives only the instruction, not the qualifying history.
 
 ---
 
