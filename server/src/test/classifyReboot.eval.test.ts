@@ -83,4 +83,14 @@ describe('classifyStepResponse (integration)', () => {
     );
     expect(result).toBe('question');
   });
+
+  // Temporary pause should not be classified as abort
+  itLive('returns question when user says they need to step away briefly', async () => {
+    const classify = await getClassifier();
+    const result = await classify(
+      [{ role: 'user', content: 'hold on, ill be right back need to use the washroom' }],
+      MODEM_STEP
+    );
+    expect(result).toBe('question');
+  });
 });
