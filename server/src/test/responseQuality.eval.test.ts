@@ -47,9 +47,9 @@ async function judge(question: string, response: string): Promise<'yes' | 'no'> 
 }
 
 describe('response quality (LLM-as-judge)', () => {
-  // Guards the bug where resolution phase kept asking follow-up questions
+  // Guards: resolved close keeps asking follow-up questions, skips goodbye, or mentions ISP contact.
   itLive('resolution phase closes conversation when issue is resolved', async () => {
-    const instruction = 'The user has confirmed their issue is resolved or improved. ' + issueRegistry['reboot'].prompts.resolution;
+    const instruction = issueRegistry['reboot'].prompts.resolution.resolved;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -62,10 +62,12 @@ describe('response quality (LLM-as-judge)', () => {
     const response = completion.choices[0].message.content ?? '';
     expect(await judge('Does this response close the conversation without asking any follow-up questions?', response)).toBe('yes');
     expect(await judge('Does this response congratulate or express happiness that the issue is resolved?', response)).toBe('yes');
+    expect(await judge('Does this response say goodbye or close the conversation?', response)).toBe('yes');
+    expect(await judge('Does this response mention contacting the ISP or an ISP phone number?', response)).toBe('no');
   });
 
   itLive('resolution phase suggests ISP or technician when issue is unresolved', async () => {
-    const instruction = 'The user has confirmed their issue is NOT resolved. ' + issueRegistry['reboot'].prompts.resolution;
+    const instruction = issueRegistry['reboot'].prompts.resolution.unresolved;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -90,9 +92,9 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response ask at least one diagnostic question?', response)).toBe('yes');
   });
 
-  // Guards the bug where partial success caused the LLM to improvise further troubleshooting
-  itLive('resolution phase closes conversation on partial success without further troubleshooting', async () => {
-    const instruction = 'The user has confirmed their issue is NOT resolved. ' + issueRegistry['reboot'].prompts.resolution;
+  // Guards partial success: closes positively, acknowledges progress, suggests ISP, no further troubleshooting.
+  itLive('resolution phase closes on partial success without further troubleshooting', async () => {
+    const instruction = issueRegistry['reboot'].prompts.resolution.partial;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -103,7 +105,9 @@ describe('response quality (LLM-as-judge)', () => {
       ],
     });
     const response = completion.choices[0].message.content ?? '';
-    expect(await judge('Does this response suggest contacting an ISP or technician for the remaining issue?', response)).toBe('yes');
+    expect(await judge('Does this response acknowledge progress or partial success?', response)).toBe('yes');
+    expect(await judge('Does this response suggest contacting an ISP or technician for the remaining device?', response)).toBe('yes');
+    expect(await judge('Does this response describe the reboot as a complete failure or say the troubleshooting did not help at all?', response)).toBe('no');
     expect(await judge('Does this response offer further troubleshooting steps such as toggling WiFi or forgetting the network?', response)).toBe('no');
     expect(await judge('Does this response ask a follow-up question?', response)).toBe('no');
   });
@@ -126,21 +130,24 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response offer troubleshooting steps or suggest the user try something technical?', response)).toBe('no');
   });
 
-  // Guards the bug where "working but slow" triggered further troubleshooting instead of closing
-  itLive('resolution phase closes conversation when issue is working but degraded', async () => {
-    const instruction = 'The user has confirmed their issue is resolved or improved. ' + issueRegistry['reboot'].prompts.resolution;
+  // Guards against further troubleshooting on a degraded-but-working outcome,
+  // and against vague ISP referrals with no contact guidance.
+  itLive('resolution phase closes and gives ISP guidance when issue is degraded', async () => {
+    const instruction = issueRegistry['reboot'].prompts.resolution.partial;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       temperature: 0.3,
       messages: [
         { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
-        { role: 'user', content: 'ya its working now but is a bit slow' },
+        { role: 'user', content: 'looks like its working but netflix is a bit slow' },
       ],
     });
     const response = completion.choices[0].message.content ?? '';
     expect(await judge('Does this response close the conversation or say goodbye?', response)).toBe('yes');
     expect(await judge('Does this response offer further troubleshooting steps or ask the user to try anything else?', response)).toBe('no');
+    expect(await judge('Does this response suggest contacting the ISP if the speed issue continues?', response)).toBe('yes');
+    expect(await judge('Does this response include guidance on how to contact their ISP, such as mentioning their website, billing statement, or the back of the router?', response)).toBe('yes');
   });
 
   // Guards the bug where self-resolved mid-flow routed to abort (cold exit) instead of stepsComplete (warm close)
@@ -171,34 +178,17 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response tell the user their problem is not a WiFi issue or is off-topic?', response)).toBe('no');
   });
 
-  // Guards against the qualifying phase giving exit advice directly instead of via exit-qualifying
-  itLive('qualifying phase does not give exit advice when ISP outage is suspected', async () => {
+  // When a neighbour's WiFi is also down, that's cross-location evidence of an ISP/service outage.
+  // Routing correctly exits to exit-qualifying, which should suggest contacting the ISP — not keep asking.
+  itLive('qualifying routes to exit-qualifying when neighbour also affected', async () => {
     const response = await getResponse(
       { phase: 'qualifying', issueType: null, stepIndex: 0 },
       "both my laptop and phone are down, and my neighbour's WiFi is also out - sounds like the ISP might be having issues"
     );
-    expect(await judge('Does this response suggest the user contact their ISP or check for an outage?', response)).toBe('no');
-    expect(await judge('Does this response ask at least one follow-up question?', response)).toBe('yes');
+    expect(await judge('Does this response suggest the user contact their ISP or check for an outage?', response)).toBe('yes');
+    expect(await judge('Does this response tell the user their problem is not a WiFi issue or is off-topic?', response)).toBe('no');
   });
 
-  // Partial resolution should close positively, not apologize
-  itLive('partial resolution closes conversation positively and suggests ISP for remaining device', async () => {
-    const instruction = 'The issue is partially resolved - things are better but not fully fixed. Close the conversation positively. ' + issueRegistry['reboot'].prompts.resolution;
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.3,
-      messages: [
-        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
-        { role: 'user', content: 'my laptop is working now but my phone still cannot connect' },
-      ],
-    });
-    const response = completion.choices[0].message.content ?? '';
-    expect(await judge('Does this response acknowledge progress or partial success?', response)).toBe('yes');
-    expect(await judge('Does this response suggest contacting an ISP or technician for the remaining device?', response)).toBe('yes');
-    expect(await judge('Does this response describe the reboot as a complete failure or say the troubleshooting did not help at all?', response)).toBe('no');
-    expect(await judge('Does this response offer further troubleshooting steps?', response)).toBe('no');
-  });
 
   // Opening turn: bot should greet and ask one general question
   itLive('opening message includes a greeting before asking a question', async () => {
@@ -217,23 +207,6 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response mention rebooting, restarting, router lights, or any specific troubleshooting step?', response)).toBe('no');
   });
 
-  // Guards the case where resolution tells user to contact ISP without saying how,
-  // leaving an obvious follow-up question that the closed conversation can't answer.
-  itLive('resolution includes ISP contact guidance when issue is not fully resolved', async () => {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const instruction = 'The user has confirmed their issue is fully resolved. ' + issueRegistry['reboot'].prompts.resolution;
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
-        { role: 'user', content: 'looks like its working but netflix is a bit slow' },
-      ],
-    });
-    const response = completion.choices[0].message.content ?? '';
-    expect(await judge('Does this response suggest contacting the ISP if the speed issue continues?', response)).toBe('yes');
-    expect(await judge('Does this response include guidance on how to contact their ISP, such as mentioning their website, billing statement, or the back of the router?', response)).toBe('yes');
-    expect(await judge('Does this response ask a follow-up question?', response)).toBe('no');
-  });
 
   // Guards the bug where stepsComplete was used for the last-step-confirm path (nextState=resolution)
   // and sometimes generated a premature goodbye. That path now uses a simple ask-only prompt.
@@ -289,23 +262,6 @@ describe('response quality (LLM-as-judge)', () => {
     expect(await judge('Does this response say goodbye or close the conversation?', response)).toBe('no');
   });
 
-  // Guards the bug where the resolution close mentioned ISP even for a fully resolved case.
-  itLive('resolution close for fully resolved does not mention ISP contact', async () => {
-    const issueConfig = issueRegistry['reboot'];
-    const instruction = 'The user has confirmed their issue is fully resolved. ' + issueConfig.prompts.resolution;
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.3,
-      messages: [
-        { role: 'system', content: `${SYSTEM_PROMPT}\n\nCURRENT INSTRUCTION:\n${instruction}` },
-        { role: 'user', content: "yes its all working great!" },
-      ],
-    });
-    const response = completion.choices[0].message.content ?? '';
-    expect(await judge('Does this response say goodbye or close the conversation?', response)).toBe('yes');
-    expect(await judge('Does this response mention contacting the ISP or an ISP phone number?', response)).toBe('no');
-  });
 
   // Guards the MAX_QUALIFYING_TURNS close — after too many turns without identifying the issue,
   // the bot should close warmly and suggest the ISP, not cut off abruptly.

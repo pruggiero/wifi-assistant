@@ -86,47 +86,54 @@ describe('classifyQualifying (integration)', () => {
     expect(result).toBe('reboot');
   });
 
-  // Completely ambiguous opening - no useful qualifying info
-  itLive('returns continue for a vague complaint with no qualifying info', async () => {
+  // Completely ambiguous opening, or a specific description with unknown device count — neither gives enough info to route.
+  itLive('returns continue with no qualifying routing info', async () => {
     const classify = await getClassifier();
-    const result = await classify([
+
+    const result1 = await classify([
       { role: 'assistant', content: 'Hi! I can help with your WiFi. Is the issue affecting all devices, or just one? Have you made any recent changes?' },
       { role: 'user', content: 'my internet is being weird' },
     ]);
-    expect(result).toBe('continue');
+    expect(result1).toBe('continue');
+
+    const result2 = await classify([
+      { role: 'assistant', content: 'Can you describe what\'s happening with your WiFi?' },
+      { role: 'user', content: 'when i search where to buy a cat, it says i don\'t have internet' },
+    ]);
+    expect(result2).toBe('continue');
   });
 
-  // User only has one device - can't confirm if others are affected, need more info
+  // User only has one device and router questions haven't been asked yet — still need that info.
   itLive('returns continue when user only has one device and cannot compare', async () => {
     const classify = await getClassifier();
     const result = await classify([
-      { role: 'assistant', content: 'Is the issue affecting all devices, or just one? Have you made any recent changes? Are any lights on your router red or off?' },
-      { role: 'user', content: 'I only have one device, my laptop, no changes, lights look normal' },
+      { role: 'assistant', content: 'Can you describe what\'s happening with your WiFi?' },
+      { role: 'user', content: 'my internet is really slow' },
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one?' },
+      { role: 'user', content: 'I only have one device, my laptop' },
     ]);
     expect(result).toBe('continue');
   });
 
-  // User only has one device but router lights are red - router symptom is enough to route to reboot
-  itLive('returns reboot when user has one device but router shows red lights', async () => {
+  // Router signals override single-device ambiguity — covers both red lights and lights that are off.
+  itLive('returns reboot when user has one device and router lights are abnormal', async () => {
     const classify = await getClassifier();
-    const result = await classify([
+
+    const result1 = await classify([
       { role: 'assistant', content: 'Is the issue affecting all devices, or just one? Have you made any recent changes? Are any lights on your router red or off?' },
       { role: 'user', content: 'I only have one device, my laptop, no changes' },
       { role: 'assistant', content: 'Can you check your router lights?' },
       { role: 'user', content: 'red' },
     ]);
-    expect(result).toBe('reboot');
-  });
+    expect(result1).toBe('reboot');
 
-  // User only has one device and lights are off that are usually on
-  itLive('returns reboot when user has one device and router lights are off', async () => {
-    const classify = await getClassifier();
-    const result = await classify([
+    const result2 = await classify([
       { role: 'assistant', content: 'Is the issue affecting all devices, or just one? Have you made any recent changes? Are any lights on your router red or off?' },
       { role: 'user', content: 'I only have one device, my laptop, no changes, some lights on my router that are usually on are now off' },
     ]);
-    expect(result).toBe('reboot');
+    expect(result2).toBe('reboot');
   });
+
 
   // Single device but user moved the router recently
   itLive('returns reboot when user has one device but recently moved the router', async () => {
@@ -158,16 +165,6 @@ describe('classifyQualifying (integration)', () => {
     expect(result).toBe('reboot');
   });
 
-  // Guards the bug where "I don't have internet" (no device count established) was classified as reboot.
-  // Device count has not been established — must ask before routing.
-  itLive('returns continue when user says they have no internet but device count is unknown', async () => {
-    const classify = await getClassifier();
-    const result = await classify([
-      { role: 'assistant', content: 'Can you describe what\'s happening with your WiFi?' },
-      { role: 'user', content: 'when i search where to buy a cat, it says i don\'t have internet' },
-    ]);
-    expect(result).toBe('continue');
-  });
 
   // Physical damage is an exit criterion — reboot won't help a broken router
   itLive('returns exit when router has visible physical damage', async () => {
@@ -185,7 +182,7 @@ describe('classifyQualifying (integration)', () => {
     const classify = await getClassifier();
     const result = await classify([
       { role: 'assistant', content: 'Is the issue affecting all devices, or just one?' },
-      { role: 'user', content: "netflix isn't working on any of my devices" },
+      { role: 'user', content: "Netflix isn't loading on any of my devices but my internet is otherwise working fine" },
     ]);
     expect(result).toBe('exit');
   });
@@ -198,5 +195,96 @@ describe('classifyQualifying (integration)', () => {
       { role: 'user', content: "netflix isn't working on any of my devices or my friend's and they live 30 minutes away" },
     ]);
     expect(result).toBe('exit');
+  });
+
+  // Naming a service alone doesn't mean it's app-specific — covers service failures, login errors,
+  // and disconnections, none of which confirm general internet is working.
+  itLive('returns continue when user names a service without confirming general internet is working', async () => {
+    const classify = await getClassifier();
+    for (const msg of [
+      'netflix is not working',
+      'im trying to login in WoW, but its giving me an error',
+      'keep disconnecting from WoW',
+      'keep disconnecting from FFXIV',
+    ]) {
+      const result = await classify([
+        { role: 'assistant', content: 'Hi! I\'m here to help. Can you describe what\'s happening with your WiFi?' },
+        { role: 'user', content: msg },
+      ]);
+      expect(result).toBe('continue');
+    }
+  });
+
+  // User explicitly said other internet is working — genuinely app-specific, exit.
+  itLive('returns exit when user confirms general internet is fine but one app is not', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Is the issue affecting all of your internet, or just one app?' },
+      { role: 'user', content: 'everything else is working fine, I can browse and use other apps, only Netflix is not loading' },
+    ]);
+    expect(result).toBe('exit');
+  });
+
+  // Two people in the same household both experiencing an issue = multiple devices on the same
+  // network, not a cross-location report. Should stay in qualifying (multiple devices → reboot path).
+  itLive('returns reboot when multiple household members have the same issue', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one?' },
+      { role: 'user', content: 'me and my wife\'s computer both having the issue' },
+    ]);
+    expect(result).toBe('reboot');
+  });
+
+  // Router lights and recent changes haven't been asked yet — stay in qualifying.
+  // Also covers the two-turn case: bot asks device count, user says "just my laptop" —
+  // that names the affected device, not that other devices are working fine.
+  itLive('returns continue when single device mentioned on first turn with no routing signal info', async () => {
+    const classify = await getClassifier();
+    const result = await classify([
+      { role: 'assistant', content: 'Hi! I\'m here to help. Can you describe what\'s happening with your WiFi?' },
+      { role: 'user', content: 'just my laptop has no internet' },
+    ]);
+    expect(result).toBe('continue');
+
+    const result2 = await classify([
+      { role: 'assistant', content: 'Hi! I\'m here to help. Can you describe what\'s happening with your WiFi?' },
+      { role: 'user', content: 'keep disconnecting from WoW' },
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one?' },
+      { role: 'user', content: 'just my laptop' },
+    ]);
+    expect(result2).toBe('continue');
+  });
+
+  // Only device, general slow internet, no router changes, lights look normal.
+  // No other devices to confirm it's device-specific — should route to reboot, not loop forever.
+  itLive('returns reboot when user has only one device and general connectivity is slow', async () => {
+    const classify = await getClassifier();
+
+    // Once user confirms general internet is affected (not just one app), skip straight to reboot.
+    const result = await classify([
+      { role: 'assistant', content: 'Can you describe what\'s happening with your WiFi?' },
+      { role: 'user', content: 'Netflix is streaming super slow' },
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one?' },
+      { role: 'user', content: 'i only have a laptop' },
+      { role: 'assistant', content: 'Can you load other websites or use other apps, or is all internet access down?' },
+      { role: 'user', content: 'everything seems slow, pages barely load, other apps are slow too' },
+    ]);
+    expect(result).toBe('reboot');
+
+    // Longer path: only device, router questions all answered, no red flags — also reboot.
+    const result2 = await classify([
+      { role: 'assistant', content: 'Can you describe what\'s happening with your WiFi?' },
+      { role: 'user', content: 'Netflix is streaming super slow' },
+      { role: 'assistant', content: 'Is the issue affecting all devices, or just one?' },
+      { role: 'user', content: 'i only have a laptop' },
+      { role: 'assistant', content: 'Can you load other websites or use other apps, or is all internet access down?' },
+      { role: 'user', content: 'everything seems slow' },
+      { role: 'assistant', content: 'Have you made any recent changes - like moving the router, adding a new device, or changing any settings?' },
+      { role: 'user', content: 'no' },
+      { role: 'assistant', content: 'Are any lights on your router showing red, or are any lights off that are usually on?' },
+      { role: 'user', content: 'looks normal' },
+    ]);
+    expect(result2).toBe('reboot');
   });
 });

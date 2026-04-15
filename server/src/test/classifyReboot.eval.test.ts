@@ -75,4 +75,22 @@ describe('classifyStepResponse (integration)', () => {
     );
     expect(result).toBe('question');
   });
+
+  // Confirm followed by a complaint — the complaint is a side-effect, not a question or abort.
+  // The user completed the step; the bot should move on, not re-ask.
+  itLive('returns confirm when user completes step but complains about a side effect', async () => {
+    const classify = await getClassifier();
+
+    const result1 = await classify(
+      [{ role: 'user', content: 'ok done, it made my wow crash' }],
+      UNPLUG_STEP
+    );
+    expect(result1).toBe('confirm');
+
+    const result2 = await classify(
+      [{ role: 'user', content: 'i did it but it was really annoying' }],
+      UNPLUG_STEP
+    );
+    expect(result2).toBe('confirm');
+  });
 });
